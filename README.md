@@ -50,9 +50,9 @@ aegis-filter = { version = "0.1.0", default-features = false }
 ### 1D Sensor Fusion with Adversarial Outlier Gating
 
 ```rust
-use aegis_filter::{ScalarKalmanFilter, KalmanError};
+use aegis_filter::{ScalarKalmanFilter, FilterError};
 
-fn main() -> Result<(), KalmanError> {
+fn main() -> Result<(), FilterError> {
     // Initial state: 20.0, Initial variance: 5.0, Process noise (Q): 0.01, Measurement noise (R): 0.5
     let mut filter = ScalarKalmanFilter::new(20.0, 5.0, 0.01, 0.5)?;
 
@@ -66,7 +66,7 @@ fn main() -> Result<(), KalmanError> {
             Ok(estimated_state) => {
                 println!("Valid state estimate: {:.3}", estimated_state);
             }
-            Err(KalmanError::MeasurementGated) => {
+            Err(FilterError::MeasurementGated) => {
                 println!("Sensor glitch detected and safely rejected: {}", reading);
             }
             Err(err) => return Err(err),
@@ -75,6 +75,23 @@ fn main() -> Result<(), KalmanError> {
 
     Ok(())
 }
+```
+
+---
+
+## Interactive Simulations & Benchmarks
+
+The repository includes runnable examples showcasing real-world aerospace and robotics applications:
+
+```bash
+# 1. Flight Telemetry & Spoofing Resilience (3-sigma gating under GPS/baro spikes)
+cargo run --example flight_telemetry
+
+# 2. Non-linear Radar Tracking via UKF (aircraft range tracking without Jacobians)
+cargo run --example radar_tracking_ukf
+
+# 3. Execution Latency & Nanosecond Benchmark (1,000,000 iterations profile)
+cargo run --example benchmark
 ```
 
 ---
