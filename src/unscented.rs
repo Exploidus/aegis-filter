@@ -53,9 +53,9 @@ impl UnscentedKalmanFilter2D {
             p: initial_p,
             q,
             r,
-            alpha: 1e-3,
+            alpha: 1.0,
             beta: 2.0, // Optimal for Gaussian distributions
-            kappa: 0.0,
+            kappa: 1.0,
         })
     }
 

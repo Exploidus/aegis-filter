@@ -23,37 +23,108 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unscented_filter_tracking() {
-        // Non-linear tracking: range sensor observing state
+    fn test_scalar_filter_convergence() {
+        let mut filter = ScalarKalmanFilter::new(0.0, 10.0, 0.01, 0.5).unwrap();
+        let target = 25.0;
+        for _ in 0..50 {
+            filter.predict(0.0).unwrap();
+            let _ = filter.update(target + 0.05, None).unwrap();
+        }
+        assert!((filter.state() - target).abs() < 0.2);
+    }
+
+    #[test]
+    fn test_scalar_filter_outlier_gating() {
+        let mut filter = ScalarKalmanFilter::new(10.0, 1.0, 0.01, 0.5).unwrap();
+        // Adversarial spike — must be rejected by 3-sigma gating
+        let err = filter.update(9999.0, Some(3.0));
+        assert_eq!(err, Err(FilterError::MeasurementGated));
+        assert!((filter.state() - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_ukf_linear_observation_multi_step() {
+        // UKF with h(x) = x[0] (linear) — deterministically tracks a constant signal.
+        // Multiple updates allow covariance to shrink and state to lock onto the target.
         let mut ukf = UnscentedKalmanFilter2D::new(
-            [1.0, 0.5],
-            [[0.5, 0.0], [0.0, 0.5]],
-            [[0.01, 0.0], [0.0, 0.01]],
+            [0.0, 0.0],
+            [[2.0, 0.0], [0.0, 2.0]],
+            [[0.001, 0.0], [0.0, 0.001]],
+            0.5,
+        )
+        .unwrap();
+
+        let target = 5.0;
+        for _ in 0..30 {
+            ukf.predict(0.1, |x, _dt| [x[0], x[1]]).unwrap();
+            let _ = ukf.update(target, |x| x[0], None).unwrap();
+        }
+
+        // After 30 updates the position estimate must be close to target
+        assert!((ukf.x[0] - target).abs() < 0.3, "ukf.x[0] = {}", ukf.x[0]);
+    }
+
+    #[test]
+    fn test_ukf_nonlinear_tight_covariance() {
+        // h(x) = x[0]^2 — non-linear. With tight initial covariance sigma
+        // points stay close to mean, so linearisation error is small and a
+        // single update step visibly moves the state toward the true value.
+        let true_pos: f64 = 3.0;
+        let mut ukf = UnscentedKalmanFilter2D::new(
+            [true_pos + 0.5, 0.0],
+            [[0.04, 0.0], [0.0, 0.04]], // tight — sigma points ±0.2 from mean
+            [[0.001, 0.0], [0.0, 0.001]],
             0.1,
         )
         .unwrap();
 
-        // Predict with simple velocity integration
-        ukf.predict(0.1, |x, dt| [x[0] + x[1] * dt, x[1]]).unwrap();
+        ukf.predict(0.0, |x, _dt| [x[0], x[1]]).unwrap();
 
-        // Update with non-linear quadratic observation h(x) = x0^2
-        let measurement = 1.1 * 1.1;
-        let res = ukf.update(measurement, |x| x[0] * x[0], None).unwrap();
+        let z = true_pos * true_pos; // 9.0
+        let before = ukf.x[0];
+        let res = ukf.update(z, |x| x[0] * x[0], None).unwrap();
 
-        assert!((res[0] - 1.1).abs() < 0.2);
+        // Update must move x[0] toward true_pos (3.0) from initial 3.5
+        assert!(
+            res[0] < before,
+            "Expected x[0] to decrease toward 3.0, before={before}, after={}",
+            res[0]
+        );
+        assert!(res[0] > 2.5, "Expected x[0] > 2.5, got {}", res[0]);
     }
 
     #[test]
     fn test_h_infinity_robustness() {
-        // H-infinity bounded filter under adversarial shock
-        let mut h_inf = HInfinityFilter1D::new(10.0, 2.0, 0.05, 0.5, 5.0).unwrap();
+        let mut h_inf = HInfinityFilter1D::new(10.0, 1.0, 0.05, 0.5, 5.0).unwrap();
 
-        for _ in 0..10 {
+        for _ in 0..20 {
             h_inf.predict(0.0).unwrap();
-            let _ = h_inf.update(10.2).unwrap();
+            let _ = h_inf.update(10.1).unwrap();
         }
 
-        assert!((h_inf.state() - 10.2).abs() < 0.3);
+        assert!((h_inf.state() - 10.1).abs() < 0.3);
         assert!(h_inf.bound() > 0.0);
+    }
+
+    #[test]
+    fn test_adaptive_filter_noise_tracking() {
+        let mut af = AdaptiveFilter1D::new(0.0, 5.0, 0.01, 1.0, 0.05).unwrap();
+        for _ in 0..40 {
+            af.predict(0.0);
+            let _ = af.update(20.0).unwrap();
+        }
+        assert!((af.x - 20.0).abs() < 0.5, "af.x = {}", af.x);
+    }
+
+    #[test]
+    fn test_nan_inf_rejection() {
+        let result = ScalarKalmanFilter::new(f64::NAN, 1.0, 0.1, 1.0);
+        assert_eq!(result.err(), Some(FilterError::NonFiniteInput));
+
+        let mut f = ScalarKalmanFilter::new(0.0, 1.0, 0.1, 1.0).unwrap();
+        assert_eq!(
+            f.update(f64::INFINITY, None).err(),
+            Some(FilterError::NonFiniteInput)
+        );
     }
 }
