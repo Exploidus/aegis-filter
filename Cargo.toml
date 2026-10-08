@@ -1,17 +1,17 @@
 [package]
-name = "kalman-filter-rs"
+name = "aegis-filter"
 version = "0.1.0"
 edition = "2021"
 authors = ["Rahad Bhuiya <rahadbhuiya2021@gmail.com>"]
 license = "MIT OR Apache-2.0"
-description = "High-integrity, `#![no_std]` capable Kalman filtering engine in pure Rust with strict numerical validation and Joseph stabilized covariance updates."
+description = "High-integrity, cyber-resilient state estimation and robust filtering engine in pure Rust with strict numerical validation, Joseph stabilized covariance updates, and outlier gating."
 readme = "README.md"
-repository = "https://github.com/rahadbhuiya/kalman-filter-rs"
-keywords = ["kalman-filter", "dsp", "state-estimation", "no-std", "aerospace"]
+repository = "https://github.com/Exploidus/aegis-filter"
+keywords = ["kalman-filter", "state-estimation", "sensor-fusion", "no-std", "aerospace"]
 categories = ["algorithms", "embedded", "no-std", "science::robotics"]
 
 [dependencies]
-# Zero mandatory external dependencies for core no_std deterministic operation
+# Zero mandatory external dependencies for core no_std deterministic execution
 
 [features]
 default = ["std"]

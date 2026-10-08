@@ -1,28 +1,29 @@
-# kalman-filter-rs
+# aegis-filter
 
-High-integrity, deterministic, and `#![no_std]` capable Kalman Filtering engine written in pure Rust.
+High-integrity, deterministic, and `#![no_std]` capable state estimation and robust filtering engine written in pure Rust.
 
-Designed for mission-critical robotics, aerospace, navigation, automotive sensor fusion, and embedded telemetry where **numerical stability**, **fail-safe error handling**, and **fault/outlier resilience** are paramount.
+Designed for mission-critical robotics, aerospace, navigation, autonomous sensor fusion, and embedded telemetry where **numerical stability**, **fail-safe error handling**, and **adversarial/outlier resilience** are paramount.
+
+Developed under **[Exploidus](https://github.com/Exploidus)**.
 
 ---
 
-## Key Architectural & Security Features
+## Architectural & Security Highlights
 
-- **Joseph Stabilized Covariance Updates**: Standard Kalman Filter updates (`P = (I - KH)P`) can become asymmetric and lose positive semi-definiteness under finite floating-point precision round-off. `kalman-filter-rs` implements the **Joseph Form** covariance update:
+- **Joseph Stabilized Covariance Updates**: Standard Kalman Filter updates ($\mathbf{P} = (\mathbf{I} - \mathbf{KH})\mathbf{P}$) frequently become asymmetric and lose positive semi-definiteness under finite floating-point round-off. `aegis-filter` implements the **Joseph Form** covariance update:
   $$\mathbf{P}_k = (\mathbf{I} - \mathbf{K}_k \mathbf{H}) \mathbf{P}_k^- (\mathbf{I} - \mathbf{K}_k \mathbf{H})^T + \mathbf{K}_k \mathbf{R} \mathbf{K}_k^T$$
-  which guarantees symmetry and positive semi-definiteness unconditionally.
-- **Strict Non-Finite Float Guards**: Rejects `NaN`, `+Inf`, and `-Inf` on all state entries, control inputs, and measurements. All methods return `Result<T, KalmanError>` with zero panics.
-- **Covariance Conditioning & Non-Degeneracy**: Protects against non-positive variances and division by near-zero innovation covariances.
-- **Mahalanobis Distance / Chi-Square Outlier Gating**: Built-in residual gating to discard wild sensor glitches, spoofed signals, or faulty sensor spikes without contaminating the filter state.
+  which unconditionally guarantees symmetry and positive semi-definiteness.
+- **Strict Non-Finite Float Guards**: Hardened against `NaN`, `+Inf`, and `-Inf` on all state vectors, inputs, and measurements. All methods return `Result<T, KalmanError>` with zero panics.
+- **Mahalanobis Distance / Chi-Square Outlier Gating**: Built-in residual gating to discard wild sensor glitches, adversarial spoofed signals, or hardware spikes without contaminating the filter state.
 - **Pure `#![no_std]` & Zero Heap Allocations**: Const generic dimensions (`KalmanFilter<STATES, MEASUREMENTS>`) allow running directly on bare-metal microcontrollers (ARM Cortex-M, RISC-V) without `alloc` or OS dependencies.
 
 ---
 
-## Components
+## Filter Architectures
 
-1. **`ScalarKalmanFilter`**: Ultra-lightweight 1D scalar filter for temperature, barometer, or single-variable telemetry tracking.
-2. **`Kinematic1DFilter`**: 2-state / 1-measurement filter tracking position and velocity from a position sensor (e.g., GPS latitude/longitude, rangefinder) with continuous white-noise process modeling.
-3. **`KalmanFilter<STATES, MEASUREMENTS>`**: Fully generic multi-dimensional linear Kalman filter configured via const generics.
+1. **`ScalarKalmanFilter`**: Ultra-lightweight 1D scalar filter for temperature, pressure altitude, or single-variable telemetry tracking.
+2. **`Kinematic1DFilter`**: 2-state / 1-measurement filter tracking position and velocity from a position sensor (e.g., GPS, rangefinder) with continuous white-noise acceleration modeling.
+3. **`KalmanFilter<STATES, MEASUREMENTS>`**: Fully generic multi-dimensional linear Kalman filter configured via compile-time const generics.
 
 ---
 
@@ -32,30 +33,30 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-kalman-filter-rs = "0.1.0"
+aegis-filter = "0.1.0"
 ```
 
 For `#![no_std]` environments (bare-metal):
 
 ```toml
 [dependencies]
-kalman-filter-rs = { version = "0.1.0", default-features = false }
+aegis-filter = { version = "0.1.0", default-features = false }
 ```
 
 ---
 
 ## Example Usage
 
-### 1D Sensor Fusion with Outlier Gating
+### 1D Sensor Fusion with Adversarial Outlier Gating
 
 ```rust
-use kalman_filter_rs::{ScalarKalmanFilter, KalmanError};
+use aegis_filter::{ScalarKalmanFilter, KalmanError};
 
 fn main() -> Result<(), KalmanError> {
     // Initial state: 20.0, Initial variance: 5.0, Process noise (Q): 0.01, Measurement noise (R): 0.5
     let mut filter = ScalarKalmanFilter::new(20.0, 5.0, 0.01, 0.5)?;
 
-    let sensor_stream = [20.2, 20.4, 20.1, 999.0 /* glitch */, 20.3];
+    let sensor_stream = [20.2, 20.4, 20.1, 999.0 /* spoofed spike */, 20.3];
 
     for &reading in &sensor_stream {
         filter.predict(0.0)?;
