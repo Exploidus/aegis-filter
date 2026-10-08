@@ -12,7 +12,12 @@ pub struct ScalarKalmanFilter {
 }
 
 impl ScalarKalmanFilter {
-    pub fn new(initial_state: f64, initial_variance: f64, process_noise: f64, measurement_noise: f64) -> Result<Self, FilterError> {
+    pub fn new(
+        initial_state: f64,
+        initial_variance: f64,
+        process_noise: f64,
+        measurement_noise: f64,
+    ) -> Result<Self, FilterError> {
         if !initial_state.is_finite()
             || !initial_variance.is_finite()
             || !process_noise.is_finite()
@@ -48,7 +53,11 @@ impl ScalarKalmanFilter {
         Ok(())
     }
 
-    pub fn update(&mut self, measurement: f64, gate_threshold_sigma: Option<f64>) -> Result<f64, FilterError> {
+    pub fn update(
+        &mut self,
+        measurement: f64,
+        gate_threshold_sigma: Option<f64>,
+    ) -> Result<f64, FilterError> {
         if !measurement.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -134,7 +143,9 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
         })
     }
 
-    fn validate_matrix<const R: usize, const C: usize>(matrix: &[[f64; C]; R]) -> Result<(), FilterError> {
+    fn validate_matrix<const R: usize, const C: usize>(
+        matrix: &[[f64; C]; R],
+    ) -> Result<(), FilterError> {
         for row in matrix.iter() {
             for val in row.iter() {
                 if !val.is_finite() {

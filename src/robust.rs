@@ -131,8 +131,20 @@ pub struct AdaptiveFilter1D {
 }
 
 impl AdaptiveFilter1D {
-    pub fn new(initial_x: f64, initial_p: f64, q: f64, initial_r: f64, adaptation_rate: f64) -> Result<Self, FilterError> {
-        if !initial_x.is_finite() || initial_p <= 0.0 || q < 0.0 || initial_r <= 0.0 || adaptation_rate <= 0.0 || adaptation_rate >= 1.0 {
+    pub fn new(
+        initial_x: f64,
+        initial_p: f64,
+        q: f64,
+        initial_r: f64,
+        adaptation_rate: f64,
+    ) -> Result<Self, FilterError> {
+        if !initial_x.is_finite()
+            || initial_p <= 0.0
+            || q < 0.0
+            || initial_r <= 0.0
+            || adaptation_rate <= 0.0
+            || adaptation_rate >= 1.0
+        {
             return Err(FilterError::InvalidCovariance);
         }
 

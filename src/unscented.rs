@@ -157,7 +157,12 @@ impl UnscentedKalmanFilter2D {
     }
 
     /// Measurement update through an arbitrary non-linear observation function `h(x) -> scalar`.
-    pub fn update<H>(&mut self, measurement: f64, mut observe_fn: H, gate_sigma: Option<f64>) -> Result<[f64; 2], FilterError>
+    pub fn update<H>(
+        &mut self,
+        measurement: f64,
+        mut observe_fn: H,
+        gate_sigma: Option<f64>,
+    ) -> Result<[f64; 2], FilterError>
     where
         H: FnMut([f64; 2]) -> f64,
     {

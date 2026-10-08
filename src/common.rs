@@ -17,11 +17,22 @@ pub enum FilterError {
 impl core::fmt::Display for FilterError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::NonFiniteInput => write!(f, "Input contains non-finite floating point values (NaN or Inf)"),
+            Self::NonFiniteInput => write!(
+                f,
+                "Input contains non-finite floating point values (NaN or Inf)"
+            ),
             Self::InvalidCovariance => write!(f, "Covariance is non-positive or ill-conditioned"),
-            Self::SingularInnovation => write!(f, "Innovation covariance is singular or ill-conditioned"),
-            Self::MeasurementGated => write!(f, "Measurement was gated out as an outlier or adversarial spike"),
-            Self::NumericalInstability => write!(f, "Numerical instability occurred during matrix factorization or square root"),
+            Self::SingularInnovation => {
+                write!(f, "Innovation covariance is singular or ill-conditioned")
+            }
+            Self::MeasurementGated => write!(
+                f,
+                "Measurement was gated out as an outlier or adversarial spike"
+            ),
+            Self::NumericalInstability => write!(
+                f,
+                "Numerical instability occurred during matrix factorization or square root"
+            ),
         }
     }
 }

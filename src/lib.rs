@@ -10,13 +10,13 @@
 
 pub mod common;
 pub mod linear;
-pub mod unscented;
 pub mod robust;
+pub mod unscented;
 
 pub use common::FilterError;
-pub use linear::{ScalarKalmanFilter, LinearKalmanFilter};
+pub use linear::{LinearKalmanFilter, ScalarKalmanFilter};
+pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};
 pub use unscented::UnscentedKalmanFilter2D;
-pub use robust::{HInfinityFilter1D, AdaptiveFilter1D};
 
 #[cfg(test)]
 mod tests {

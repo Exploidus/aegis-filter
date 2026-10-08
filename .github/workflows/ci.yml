@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Build & Verify (Linux, Bare-Metal no_std, Clippy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: thumbv7em-none-eabihf
+
+      - name: Check code formatting
+        run: cargo fmt -- --check
+
+      - name: Run Clippy Linter
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run Test Suite (Standard Library)
+        run: cargo test --all-features --verbose
+
+      - name: Verify Pure #![no_std] Core Compilation (Bare-Metal target)
+        run: cargo check --no-default-features --target thumbv7em-none-eabihf
