@@ -28,6 +28,9 @@ pub struct UnscentedKalmanFilter2D {
     kappa: f64,
 }
 
+/// Sigma points container: (weights_mean, weights_cov, points)
+pub type SigmaPoints2D = ([f64; 5], [f64; 5], [[f64; 2]; 5]);
+
 impl UnscentedKalmanFilter2D {
     /// Initializes a new 2D Unscented Kalman Filter.
     pub fn new(
@@ -57,7 +60,7 @@ impl UnscentedKalmanFilter2D {
     }
 
     /// Computes 2*N + 1 = 5 Sigma Points and their corresponding mean and covariance weights.
-    fn generate_sigma_points(&self) -> Result<([f64; 5], [f64; 5], [[f64; 2]; 5]), FilterError> {
+    fn generate_sigma_points(&self) -> Result<SigmaPoints2D, FilterError> {
         let n = 2.0;
         let lambda = self.alpha * self.alpha * (n + self.kappa) - n;
         let c = n + lambda;

@@ -156,6 +156,7 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
         Ok(())
     }
 
+    #[allow(clippy::needless_range_loop)]
     pub fn predict(&mut self) -> Result<(), FilterError> {
         let mut x_pred = [0.0; S];
         for i in 0..S {
