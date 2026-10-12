@@ -22,8 +22,11 @@ Developed under **[Exploidus](https://github.com/Exploidus)**.
 ## Filter Architectures
 
 1. **`ScalarKalmanFilter`**: Ultra-lightweight 1D scalar filter for temperature, pressure altitude, or single-variable telemetry tracking.
-2. **`Kinematic1DFilter`**: 2-state / 1-measurement filter tracking position and velocity from a position sensor (e.g., GPS, rangefinder) with continuous white-noise acceleration modeling.
-3. **`KalmanFilter<STATES, MEASUREMENTS>`**: Fully generic multi-dimensional linear Kalman filter configured via compile-time const generics.
+2. **`LinearKalmanFilter<STATES, MEASUREMENTS>`**: Fully generic multi-dimensional linear Kalman filter configured via compile-time const generics.
+3. **`MultiSensorFusion1D<CAPACITY>`**: Multi-sensor redundant fusion engine with dynamic sensor health scoring and automated Fault Detection, Isolation, and Recovery (FDIR).
+4. **`UnscentedKalmanFilter2D`**: Non-linear estimation via Merwe scaled sigma points without numerical Jacobian derivations.
+5. **`HInfinityFilter1D`**: Minimax bounded worst-case disturbance filter for unmodeled dynamics.
+6. **`AdaptiveFilter1D`**: Online covariance estimation adapting to non-stationary sensor noise.
 
 ---
 
@@ -92,6 +95,9 @@ cargo run --example radar_tracking_ukf
 
 # 3. Execution Latency & Nanosecond Benchmark (1,000,000 iterations profile)
 cargo run --example benchmark
+
+# 4. Multi-Sensor Fusion & Automated FDIR (GPS spoof quarantine & Baro/LiDAR handover)
+cargo run --example sensor_fault_fdir
 ```
 
 ---

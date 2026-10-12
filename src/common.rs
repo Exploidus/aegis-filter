@@ -12,6 +12,10 @@ pub enum FilterError {
     MeasurementGated,
     /// Internal matrix inversion failure or non-positive square root.
     NumericalInstability,
+    /// Invalid parameter value provided (e.g., negative variance or zero threshold).
+    InvalidParameter,
+    /// Static capacity exceeded for fixed-size sensor buffers.
+    CapacityExceeded,
 }
 
 impl core::fmt::Display for FilterError {
@@ -33,6 +37,8 @@ impl core::fmt::Display for FilterError {
                 f,
                 "Numerical instability occurred during matrix factorization or square root"
             ),
+            Self::InvalidParameter => write!(f, "Invalid parameter value provided to filter"),
+            Self::CapacityExceeded => write!(f, "Maximum registered sensor capacity exceeded"),
         }
     }
 }

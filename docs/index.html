@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>aegis-filter demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --green: #22c55e;
+      --orange: #f97316;
+      --blue: #60a5fa;
+      --red: #f87171;
+      --yellow: #f59e0b;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 15px; font-weight: 700; color: var(--text); }
+    .header p { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    .btn-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    button {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.8; }
+    #btnStart { background: var(--green); color: #000; border-color: var(--green); }
+    #btnSpoof { border-color: #ef4444; color: #ef4444; }
+
+    /* Status grid */
+    .status-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+    @media (min-width: 560px) { .status-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .stat-label { font-size: 11px; color: var(--muted); }
+    .stat-val { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .pill-quaran { animation: blink 0.85s infinite; }
+
+    /* Chart area */
+    .chart-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .chart-title { font-size: 12px; font-weight: 600; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--muted); }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    canvas { display: block; }
+
+    /* Two column */
+    .two-col { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 12px; }
+    @media (min-width: 560px) { .two-col { grid-template-columns: 1fr 1fr; } }
+
+    /* Log */
+    .log-wrap { font-family: 'Courier New', monospace; font-size: 11px; color: var(--muted); max-height: 128px; overflow-y: auto; line-height: 1.6; }
+
+    /* Health bars */
+    .health-row { margin-bottom: 10px; }
+    .health-top { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+    .bar-track { width: 100%; height: 5px; border-radius: 999px; background: var(--border); }
+    .bar-fill { height: 5px; border-radius: 999px; transition: width 0.3s, background 0.3s; }
+
+    /* Counter bar */
+    .counter-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+    .counter-group { display: flex; flex-wrap: wrap; gap: 16px; }
+    .counter-item { color: var(--muted); }
+    .counter-item b { color: var(--text); }
+
+    /* Links */
+    .footer { text-align: center; padding: 12px 0 4px; font-size: 12px; color: var(--muted); }
+    .footer a { color: var(--blue); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="card">
+    <div class="header">
+      <div>
+        <h1>aegis-filter &mdash; Live Flight Telemetry Demo</h1>
+        <p>Kalman filter vs adversarial GPS spoofing &bull; real-time simulation</p>
+      </div>
+      <div class="btn-group">
+        <button id="btnStart" onclick="startSim()">Start</button>
+        <button id="btnSpoof" onclick="injectSpoof()">Inject GPS Spoof</button>
+        <button onclick="resetSim()">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-grid">
+    <div class="stat-card">
+      <div class="stat-label">True Altitude</div>
+      <div class="stat-val" id="sTrue">0.00 m</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">aegis-filter</div>
+      <div class="stat-val" id="sAegis" style="color:var(--green)">0.00 m</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Standard KF</div>
+      <div class="stat-val" id="sKF" style="color:var(--orange)">0.00 m</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">GPS Status</div>
+      <div id="sGPS"><span class="pill" style="background:#22c55e22;color:var(--green)">NOMINAL</span></div>
+    </div>
+  </div>
+
+  <!-- Main chart -->
+  <div class="card">
+    <div class="chart-header">
+      <span class="chart-title">Altitude Tracking</span>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--blue)"></span>True</span>
+        <span><span class="dot" style="background:var(--red)"></span>GPS</span>
+        <span><span class="dot" style="background:var(--green)"></span>aegis-filter</span>
+        <span><span class="dot" style="background:var(--orange)"></span>Standard KF</span>
+      </div>
+    </div>
+    <div id="mainWrap"><canvas id="mainChart"></canvas></div>
+  </div>
+
+  <!-- Log + health -->
+  <div class="two-col">
+    <div class="card">
+      <div class="chart-title" style="margin-bottom:8px">Event Log</div>
+      <div class="log-wrap" id="eventLog"><div>-- waiting for simulation start --</div></div>
+    </div>
+    <div class="card">
+      <div class="chart-title" style="margin-bottom:10px">Sensor Health</div>
+      <div class="health-row">
+        <div class="health-top">
+          <span style="color:var(--muted);font-size:11px">GPS Altimeter</span>
+          <span id="gpsHpct" style="font-size:11px;font-weight:600;color:var(--green)">100%</span>
+        </div>
+        <div class="bar-track"><div id="gpsHbar" class="bar-fill" style="width:100%;background:var(--green)"></div></div>
+      </div>
+      <div class="health-row">
+        <div class="health-top">
+          <span style="color:var(--muted);font-size:11px">Barometer (fallback)</span>
+          <span style="font-size:11px;font-weight:600;color:var(--green)">100%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--green)"></div></div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">
+          Tracking error &mdash; <span style="color:var(--green)">aegis</span> vs <span style="color:var(--orange)">Standard KF</span>
+        </div>
+        <div id="errWrap"><canvas id="errChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Counter -->
+  <div class="card">
+    <div class="counter-bar">
+      <div class="counter-group">
+        <div class="counter-item">Spoofs injected: <b id="cInj">0</b></div>
+        <div class="counter-item">Rejected by aegis: <b id="cRej" style="color:var(--green)">0</b></div>
+        <div class="counter-item">KF diverged: <b id="cDiv" style="color:var(--orange)">0</b></div>
+      </div>
+      <div id="rateEl" style="font-size:12px;color:var(--muted)">Rejection rate: <b style="color:var(--text)">--</b></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="https://crates.io/crates/aegis-filter" target="_blank">crates.io</a>
+    &nbsp;&bull;&nbsp;
+    <a href="https://github.com/Exploidus/aegis-filter" target="_blank">GitHub</a>
+    &nbsp;&bull;&nbsp;
+    Built by <a href="https://github.com/rahadbhuiya" target="_blank">Rahad Bhuiya</a>
+  </div>
+
+</div>
+
+<script>
+  var MAX = 80;
+  var timer = null, step = 0, nextSpoof = false;
+  var af = {x:0, p:5, q:0.05};
+  var kf = {x:0, p:5, q:0.05};
+  var gpsH = 1.0, gpsAnomaly = 0, gpsOut = false;
+
+  var GPS_R = 1.2, BARO_R = 0.3, CLIMB = 1.5, GATE = 3.0, MAX_ANOM = 2;
+
+  var trueArr=[], gpsArr=[], afArr=[], kfArr=[], afErr=[], kfErr=[];
+  var nInj=0, nRej=0, nDiv=0;
+
+  var mc = document.getElementById('mainChart');
+  var ec = document.getElementById('errChart');
+  var mx = mc.getContext('2d');
+  var ex = ec.getContext('2d');
+
+  function sizeCanvas(c, wrap, h) {
+    var dpr = window.devicePixelRatio || 1;
+    var w = wrap.clientWidth;
+    c.width  = w * dpr;
+    c.height = h * dpr;
+    c.style.width  = w + 'px';
+    c.style.height = h + 'px';
+    c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function resize() {
+    sizeCanvas(mc, document.getElementById('mainWrap'), 200);
+    sizeCanvas(ec, document.getElementById('errWrap'), 60);
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(function() { resize(); draw(); })
+      .observe(document.getElementById('mainWrap'));
+  } else {
+    window.addEventListener('resize', function() { resize(); draw(); });
+  }
+
+  requestAnimationFrame(function() { resize(); draw(); });
+
+  function kUpdate(state, z, R, gate) {
+    var s = state.p + R;
+    var inn = z - state.x;
+    if (gate && Math.abs(inn) > GATE * Math.sqrt(s)) return { ok: false, s: state };
+    var k = state.p / s;
+    var mk = 1 - k;
+    var p2 = gate
+      ? Math.max(mk * state.p * mk + k * R * k, 1e-6)
+      : Math.max(mk * state.p, 1e-6);
+    return { ok: true, s: { x: state.x + k * inn, p: p2, q: state.q } };
+  }
+
+  function predict(state) {
+    return { x: state.x + CLIMB, p: state.p + state.q, q: state.q };
+  }
+
+  function log(msg, color) {
+    var el = document.getElementById('eventLog');
+    var d = document.createElement('div');
+    d.style.color = color || 'var(--muted)';
+    d.textContent = '[' + String(step).padStart(3,'0') + '] ' + msg;
+    el.insertBefore(d, el.firstChild);
+    while (el.children.length > 40) el.removeChild(el.lastChild);
+  }
+
+  function tick() {
+    step++;
+    var tv = step * CLIMB;
+    var gv = tv + (Math.random() - 0.5) * 2.5;
+    var spoofed = false;
+    if (nextSpoof) {
+      gv = tv + 150 + (Math.random() - 0.5) * 10;
+      spoofed = true;
+      nextSpoof = false;
+      nInj++;
+    }
+    var bv = tv + (Math.random() - 0.5) * 0.8;
+
+    af = predict(af);
+    kf = predict(kf);
+
+    var fused = false;
+    if (!gpsOut) {
+      var r = kUpdate(af, gv, GPS_R, true);
+      if (r.ok) {
+        af = r.s;
+        fused = true;
+        gpsAnomaly = Math.max(0, gpsAnomaly - 1);
+        gpsH = Math.min(1.0, gpsH + 0.05);
+      } else {
+        gpsAnomaly++;
+        gpsH = Math.max(0, gpsH * 0.5);
+        if (gpsAnomaly >= MAX_ANOM) {
+          gpsOut = true;
+          gpsH = 0;
+          log('GPS QUARANTINED — barometer only', 'var(--red)');
+        } else {
+          log('GPS GATED — anomaly #' + gpsAnomaly, 'var(--yellow)');
+        }
+        if (spoofed) nRej++;
+      }
+    } else if (spoofed) {
+      nRej++;
+    }
+
+
+
+    var br = kUpdate(af, bv, BARO_R, true);
+    if (br.ok) af = br.s;
+
+    var kr = kUpdate(kf, gv, GPS_R, false);
+    kf = kr.s;
+
+    if (spoofed && Math.abs(kf.x - tv) > 10) {
+      nDiv++;
+      log('STANDARD KF DIVERGED — err: ' + Math.abs(kf.x - tv).toFixed(1) + 'm', 'var(--orange)');
+    }
+    if (spoofed && !fused) {
+      log('aegis holding — err: ' + Math.abs(af.x - tv).toFixed(3) + 'm', 'var(--green)');
+    }
+
+    var gsel = document.getElementById('sGPS');
+    if (gpsOut) {
+      gsel.innerHTML = '<span class="pill pill-quaran" style="background:#ef444418;color:var(--red)">QUARANTINED</span>';
+    } else if (!fused && spoofed) {
+      gsel.innerHTML = '<span class="pill" style="background:#f59e0b18;color:var(--yellow)">SPOOF REJECT</span>';
+    } else {
+      gsel.innerHTML = '<span class="pill" style="background:#22c55e18;color:var(--green)">NOMINAL</span>';
+    }
+
+    if (trueArr.length >= MAX) {
+      [trueArr, gpsArr, afArr, kfArr, afErr, kfErr].forEach(function(a) { a.shift(); });
+    }
+    trueArr.push(tv); gpsArr.push(gv); afArr.push(af.x); kfArr.push(kf.x);
+    afErr.push(Math.abs(af.x - tv)); kfErr.push(Math.abs(kf.x - tv));
+
+    document.getElementById('sTrue').textContent  = tv.toFixed(2)   + ' m';
+    document.getElementById('sAegis').textContent = af.x.toFixed(2) + ' m';
+    document.getElementById('sKF').textContent    = kf.x.toFixed(2) + ' m';
+    document.getElementById('cInj').textContent   = nInj;
+    document.getElementById('cRej').textContent   = nRej;
+    document.getElementById('cDiv').textContent   = nDiv;
+
+    var pct = Math.round(gpsH * 100);
+    var gc  = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--yellow)' : 'var(--red)';
+    document.getElementById('gpsHpct').textContent = pct + '%';
+    document.getElementById('gpsHpct').style.color = gc;
+    document.getElementById('gpsHbar').style.width = pct + '%';
+    document.getElementById('gpsHbar').style.background = gc;
+
+    if (nInj > 0) {
+      var rate = Math.round((nRej / nInj) * 100);
+      document.getElementById('rateEl').innerHTML =
+        'Rejection rate: <b style="color:var(--green)">' + rate + '%</b>';
+    }
+
+    draw();
+  }
+
+  function line(ctx, data, color, lw, yMin, yMax, W, H, pad) {
+    if (data.length < 2) return;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.lineJoin = 'round';
+    ctx.lineCap  = 'round';
+    for (var i = 0; i < data.length; i++) {
+      var x = pad + (i / (MAX - 1)) * (W - pad * 2);
+      var y = H - pad - ((data[i] - yMin) / Math.max(yMax - yMin, 0.001)) * (H - pad * 2);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function draw() {
+    var dpr = window.devicePixelRatio || 1;
+    var W = mc.width / dpr, H = mc.height / dpr, pad = 34;
+
+    mx.clearRect(0, 0, W, H);
+
+    var all = trueArr.concat(gpsArr, afArr, kfArr);
+    var yMin = (all.length ? Math.min.apply(null, all) : 0)  - 15;
+    var yMax = (all.length ? Math.max.apply(null, all) : 100) + 15;
+
+    mx.font = '10px monospace';
+    for (var i = 0; i <= 5; i++) {
+      var gy = pad + (i / 5) * (H - pad * 2);
+      var gv = yMax - (i / 5) * (yMax - yMin);
+      mx.beginPath();
+      mx.strokeStyle = 'rgba(255,255,255,0.05)';
+      mx.lineWidth = 1;
+      mx.moveTo(pad, gy);
+      mx.lineTo(W - pad, gy);
+      mx.stroke();
+      mx.fillStyle = 'rgba(255,255,255,0.35)';
+      mx.fillText(gv.toFixed(0) + 'm', 2, gy + 4);
+    }
+
+    line(mx, trueArr, '#60a5fa', 2,   yMin, yMax, W, H, pad);
+
+    for (var j = 0; j < gpsArr.length; j++) {
+      var px = pad + (j / (MAX - 1)) * (W - pad * 2);
+      var py = H - pad - ((gpsArr[j] - yMin) / (yMax - yMin)) * (H - pad * 2);
+      mx.beginPath();
+      mx.arc(px, py, 2.5, 0, Math.PI * 2);
+      mx.fillStyle = '#f87171';
+      mx.fill();
+    }
+
+
+    line(mx, kfArr, '#f97316', 2,   yMin, yMax, W, H, pad);
+    line(mx, afArr, '#22c55e', 2.5, yMin, yMax, W, H, pad);
+
+    var EW = ec.width / dpr, EH = ec.height / dpr, EP = 3;
+    ex.clearRect(0, 0, EW, EH);
+    var eMax = Math.max.apply(null, afErr.concat(kfErr).concat([1])) + 2;
+    line(ex, kfErr, '#f97316', 1.5, 0, eMax, EW, EH, EP);
+    line(ex, afErr, '#22c55e', 1.5, 0, eMax, EW, EH, EP);
+  }
+
+  function startSim() {
+    if (timer) return;
+    log('simulation started — climbing at ' + CLIMB + ' m/step', '#60a5fa');
+    timer = setInterval(tick, 120);
+    var b = document.getElementById('btnStart');
+    b.textContent = 'Running...';
+    b.style.opacity = '0.55';
+  }
+
+  function injectSpoof() {
+    if (!timer) startSim();
+    nextSpoof = true;
+    log('GPS spoof attack queued (+150 m adversarial spike)', '#ef4444');
+  }
+
+  function resetSim() {
+    clearInterval(timer); timer = null; step = 0;
+    af = {x:0,p:5,q:0.05}; kf = {x:0,p:5,q:0.05};
+    gpsH = 1.0; gpsAnomaly = 0; gpsOut = false; nextSpoof = false;
+    nInj = 0; nRej = 0; nDiv = 0;
+    trueArr=[]; gpsArr=[]; afArr=[]; kfArr=[]; afErr=[]; kfErr=[];
+
+
+    document.getElementById('eventLog').innerHTML = '<div>-- simulation reset --</div>';
+    var b = document.getElementById('btnStart');
+    b.textContent = 'Start'; b.style.opacity = '1';
+    document.getElementById('sTrue').textContent  = '0.00 m';
+    document.getElementById('sAegis').textContent = '0.00 m';
+    document.getElementById('sKF').textContent    = '0.00 m';
+    document.getElementById('sGPS').innerHTML     = '<span class="pill" style="background:#22c55e18;color:var(--green)">NOMINAL</span>';
+    document.getElementById('cInj').textContent   = '0';
+    document.getElementById('cRej').textContent   = '0';
+    document.getElementById('cDiv').textContent   = '0';
+    document.getElementById('rateEl').innerHTML   = 'Rejection rate: <b style="color:var(--text)">--</b>';
+    document.getElementById('gpsHpct').textContent = '100%';
+    document.getElementById('gpsHpct').style.color = 'var(--green)';
+    document.getElementById('gpsHbar').style.width = '100%';
+    document.getElementById('gpsHbar').style.background = 'var(--green)';
+    draw();
+  }
+</script>
+</body>
+</html>

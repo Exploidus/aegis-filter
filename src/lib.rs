@@ -9,11 +9,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod common;
+pub mod fusion;
 pub mod linear;
 pub mod robust;
 pub mod unscented;
 
 pub use common::FilterError;
+pub use fusion::{FusionStatus, MultiSensorFusion1D, SensorMeasurement, SensorSource};
 pub use linear::{LinearKalmanFilter, ScalarKalmanFilter};
 pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};
 pub use unscented::UnscentedKalmanFilter2D;
@@ -126,5 +128,42 @@ mod tests {
             f.update(f64::INFINITY, None).err(),
             Some(FilterError::NonFiniteInput)
         );
+    }
+
+    #[test]
+    fn test_multi_sensor_fusion_and_quarantine() {
+        // Setup fusion engine with capacity for 3 sensors
+        let mut fusion = MultiSensorFusion1D::<3>::new(0.0, 5.0, 0.05).unwrap();
+
+        // Sensor 1: Accurate Barometer (R=0.2, max 3 anomalies)
+        let baro = SensorSource::new(1, 0.2, 3).unwrap();
+        // Sensor 2: Noisy GPS (R=1.5, max 2 anomalies)
+        let gps = SensorSource::new(2, 1.5, 2).unwrap();
+
+        fusion.register_sensor(baro).unwrap();
+        fusion.register_sensor(gps).unwrap();
+
+        // Nominal fusion
+        fusion.predict(1.0).unwrap();
+        let status = fusion.fuse(SensorMeasurement { sensor_id: 1, value: 1.05 }).unwrap();
+        assert_eq!(status, FusionStatus::Fused);
+
+        // Adversarial spoofing on GPS (id=2)
+        // Attack 1: Gated
+        let status = fusion.fuse(SensorMeasurement { sensor_id: 2, value: 500.0 }).unwrap();
+        assert_eq!(status, FusionStatus::Gated);
+
+        // Attack 2: Second consecutive anomaly triggers Quarantine!
+        let status = fusion.fuse(SensorMeasurement { sensor_id: 2, value: 500.0 }).unwrap();
+        assert_eq!(status, FusionStatus::Quarantined);
+        assert_eq!(fusion.sensor_health(2), Some(0.0));
+
+        // Subsequent measurements from quarantined GPS are safely ignored
+        let status = fusion.fuse(SensorMeasurement { sensor_id: 2, value: 1.0 }).unwrap();
+        assert_eq!(status, FusionStatus::IgnoredQuarantined);
+
+        // Barometer continues nominal operation unhindered
+        let status = fusion.fuse(SensorMeasurement { sensor_id: 1, value: 1.02 }).unwrap();
+        assert_eq!(status, FusionStatus::Fused);
     }
 }
