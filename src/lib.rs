@@ -145,25 +145,50 @@ mod tests {
 
         // Nominal fusion
         fusion.predict(1.0).unwrap();
-        let status = fusion.fuse(SensorMeasurement { sensor_id: 1, value: 1.05 }).unwrap();
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 1.05,
+            })
+            .unwrap();
         assert_eq!(status, FusionStatus::Fused);
 
         // Adversarial spoofing on GPS (id=2)
         // Attack 1: Gated
-        let status = fusion.fuse(SensorMeasurement { sensor_id: 2, value: 500.0 }).unwrap();
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 2,
+                value: 500.0,
+            })
+            .unwrap();
         assert_eq!(status, FusionStatus::Gated);
 
         // Attack 2: Second consecutive anomaly triggers Quarantine!
-        let status = fusion.fuse(SensorMeasurement { sensor_id: 2, value: 500.0 }).unwrap();
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 2,
+                value: 500.0,
+            })
+            .unwrap();
         assert_eq!(status, FusionStatus::Quarantined);
         assert_eq!(fusion.sensor_health(2), Some(0.0));
 
         // Subsequent measurements from quarantined GPS are safely ignored
-        let status = fusion.fuse(SensorMeasurement { sensor_id: 2, value: 1.0 }).unwrap();
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 2,
+                value: 1.0,
+            })
+            .unwrap();
         assert_eq!(status, FusionStatus::IgnoredQuarantined);
 
         // Barometer continues nominal operation unhindered
-        let status = fusion.fuse(SensorMeasurement { sensor_id: 1, value: 1.02 }).unwrap();
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 1.02,
+            })
+            .unwrap();
         assert_eq!(status, FusionStatus::Fused);
     }
 }

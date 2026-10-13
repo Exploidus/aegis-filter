@@ -14,8 +14,8 @@ fn main() {
     println!("===============================================================================\n");
 
     // Initialize fusion engine with capacity for 4 redundant sensors
-    let mut fusion = MultiSensorFusion1D::<4>::new(0.0, 5.0, 0.02)
-        .expect("Failed to initialize fusion filter");
+    let mut fusion =
+        MultiSensorFusion1D::<4>::new(0.0, 5.0, 0.02).expect("Failed to initialize fusion filter");
 
     // Register sensors:
     // Sensor 1: Barometer (Variance R = 0.3, Max 4 consecutive anomalies)
@@ -61,7 +61,12 @@ fn main() {
 
         println!(
             "{:<5} | {:<10.2} | {:<8} | {:<12.2} | {:<14.2} | {:?}",
-            step, true_alt, "Baro", baro_reading, fusion.state(), s1
+            step,
+            true_alt,
+            "Baro",
+            baro_reading,
+            fusion.state(),
+            s1
         );
 
         // 2. GPS measurement (injected with an adversarial RF spoofing attack at step 8 & 9)
@@ -80,7 +85,12 @@ fn main() {
 
         println!(
             "{:<5} | {:<10.2} | {:<8} | {:<12.2} | {:<14.2} | {:?}",
-            step, true_alt, "GPS", gps_reading, fusion.state(), s2
+            step,
+            true_alt,
+            "GPS",
+            gps_reading,
+            fusion.state(),
+            s2
         );
 
         // 3. LiDAR measurement (valid only below 25m)
@@ -95,7 +105,12 @@ fn main() {
 
             println!(
                 "{:<5} | {:<10.2} | {:<8} | {:<12.2} | {:<14.2} | {:?}",
-                step, true_alt, "LiDAR", lidar_reading, fusion.state(), s3
+                step,
+                true_alt,
+                "LiDAR",
+                lidar_reading,
+                fusion.state(),
+                s3
             );
         }
     }
