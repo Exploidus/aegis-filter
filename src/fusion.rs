@@ -214,11 +214,9 @@ impl<const N: usize> MultiSensorFusion1D<N> {
 
     /// Returns the active health score of a sensor by ID.
     pub fn sensor_health(&self, sensor_id: u8) -> Option<f64> {
-        for slot in self.sensors.iter() {
-            if let Some(s) = slot {
-                if s.id == sensor_id {
-                    return Some(s.health_score);
-                }
+        for s in self.sensors.iter().flatten() {
+            if s.id == sensor_id {
+                return Some(s.health_score);
             }
         }
         None
