@@ -15,6 +15,7 @@ use crate::common::FilterError;
 /// of known Gaussian noise, the H-infinity filter solves a minimax game:
 /// it minimizes the *worst-case estimation error* over all possible bounded disturbances.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HInfinityFilter1D {
     /// State estimate (x)
     x: f64,
@@ -121,6 +122,7 @@ impl HInfinityFilter1D {
 /// Automatically adjusts measurement variance R online using an exponential moving average
 /// of the innovation sequence (Sage-Husa inspired).
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AdaptiveFilter1D {
     pub x: f64,
     pub p: f64,

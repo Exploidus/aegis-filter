@@ -1,6 +1,6 @@
 [package]
 name = "aegis-filter"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Rahad Bhuiya <rahadbhuiya2021@gmail.com>"]
 license = "MIT OR Apache-2.0"
@@ -11,8 +11,9 @@ keywords = ["kalman-filter", "state-estimation", "sensor-fusion", "no-std", "aer
 categories = ["algorithms", "embedded", "no-std", "science::robotics"]
 
 [dependencies]
-# Zero mandatory external dependencies for core no_std deterministic execution
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [features]
 default = ["std"]
 std = []
+serde = ["dep:serde"]

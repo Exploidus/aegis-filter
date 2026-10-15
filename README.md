@@ -19,14 +19,15 @@ Developed under **[Exploidus](https://github.com/Exploidus)**.
 
 ---
 
-## Filter Architectures
+## Filter & Telemetry Architectures
 
 1. **`ScalarKalmanFilter`**: Ultra-lightweight 1D scalar filter for temperature, pressure altitude, or single-variable telemetry tracking.
 2. **`LinearKalmanFilter<STATES, MEASUREMENTS>`**: Fully generic multi-dimensional linear Kalman filter configured via compile-time const generics.
-3. **`MultiSensorFusion1D<CAPACITY>`**: Multi-sensor redundant fusion engine with dynamic sensor health scoring and automated Fault Detection, Isolation, and Recovery (FDIR).
+3. **`MultiSensorFusion1D<CAPACITY>`**: Multi-sensor redundant fusion engine with dynamic sensor health scoring, automated Fault Detection, Isolation, and Recovery (FDIR), and consecutive-health auto-recovery.
 4. **`UnscentedKalmanFilter2D`**: Non-linear estimation via Merwe scaled sigma points without numerical Jacobian derivations.
 5. **`HInfinityFilter1D`**: Minimax bounded worst-case disturbance filter for unmodeled dynamics.
 6. **`AdaptiveFilter1D`**: Online covariance estimation adapting to non-stationary sensor noise.
+7. **`WindowedStats<CAPACITY>`**: Zero-allocation sliding-window statistical analyzer computing rolling mean, variance, standard deviation, and peak-to-peak spread over fixed const-generic buffers.
 
 ---
 
@@ -36,14 +37,21 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-aegis-filter = "0.1.0"
+aegis-filter = "0.3.0"
 ```
 
 For `#![no_std]` environments (bare-metal):
 
 ```toml
 [dependencies]
-aegis-filter = { version = "0.1.0", default-features = false }
+aegis-filter = { version = "0.3.0", default-features = false }
+```
+
+With optional `serde` support for state persistence and telemetry serialization:
+
+```toml
+[dependencies]
+aegis-filter = { version = "0.3.0", features = ["serde"] }
 ```
 
 ---

@@ -1,6 +1,7 @@
 //! Core mathematical types, errors, and `#![no_std]` floating point helpers.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FilterError {
     /// Provided float was NaN or infinite.
     NonFiniteInput,

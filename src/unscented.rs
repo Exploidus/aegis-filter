@@ -12,6 +12,7 @@ use crate::common::{FilterError, FloatOps};
 /// Designed to replace linear KF and Extended Kalman Filter (EKF)
 /// in non-linear tracking problems (e.g. radar range, pendulums, angle transformations).
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnscentedKalmanFilter2D {
     /// State mean [x0, x1]
     pub x: [f64; 2],

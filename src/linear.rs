@@ -4,6 +4,7 @@ use crate::common::{FilterError, FloatOps};
 
 /// 1D Scalar Kalman Filter with Joseph-stabilized variance update.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ScalarKalmanFilter {
     x: f64,
     p: f64,

@@ -12,12 +12,14 @@ pub mod common;
 pub mod fusion;
 pub mod linear;
 pub mod robust;
+pub mod stats;
 pub mod unscented;
 
 pub use common::FilterError;
 pub use fusion::{FusionStatus, MultiSensorFusion1D, SensorMeasurement, SensorSource};
 pub use linear::{LinearKalmanFilter, ScalarKalmanFilter};
 pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};
+pub use stats::WindowedStats;
 pub use unscented::UnscentedKalmanFilter2D;
 
 #[cfg(test)]
@@ -190,5 +192,82 @@ mod tests {
             })
             .unwrap();
         assert_eq!(status, FusionStatus::Fused);
+    }
+
+    #[test]
+    fn test_sensor_auto_recovery() {
+        let mut fusion = MultiSensorFusion1D::<2>::new(10.0, 1.0, 0.01).unwrap();
+        // Sensor with auto-recovery threshold of 2 consecutive healthy observations
+        let gps = SensorSource::new(1, 0.5, 2).unwrap().with_auto_recovery(2);
+        fusion.register_sensor(gps).unwrap();
+
+        // 2 anomalies force quarantine
+        let _ = fusion.fuse(SensorMeasurement {
+            sensor_id: 1,
+            value: 100.0,
+        });
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 100.0,
+            })
+            .unwrap();
+        assert_eq!(status, FusionStatus::Quarantined);
+
+        // 1st healthy sample while quarantined
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 10.05,
+            })
+            .unwrap();
+        assert_eq!(status, FusionStatus::IgnoredQuarantined);
+
+        // 2nd healthy sample triggers auto-recovery!
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 10.02,
+            })
+            .unwrap();
+        assert_eq!(status, FusionStatus::Recovered);
+
+        // Subsequent sample is actively fused again
+        let status = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 10.01,
+            })
+            .unwrap();
+        assert_eq!(status, FusionStatus::Fused);
+    }
+
+    #[test]
+    fn test_windowed_stats_rolling_metrics() {
+        let mut stats = WindowedStats::<4>::new();
+        assert!(stats.is_empty());
+        assert_eq!(stats.len(), 0);
+
+        stats.push(2.0).unwrap();
+        stats.push(4.0).unwrap();
+        assert_eq!(stats.len(), 2);
+        assert!((stats.mean().unwrap() - 3.0).abs() < 1e-9);
+        assert_eq!(stats.min(), Some(2.0));
+        assert_eq!(stats.max(), Some(4.0));
+        assert!((stats.peak_to_peak().unwrap() - 2.0).abs() < 1e-9);
+
+        // Push more samples to exceed window capacity of 4
+        stats.push(6.0).unwrap();
+        stats.push(8.0).unwrap();
+        assert_eq!(stats.len(), 4);
+        assert!((stats.mean().unwrap() - 5.0).abs() < 1e-9);
+
+        // Overwrite oldest (2.0) with 10.0 -> window has [10, 4, 6, 8], mean = 7.0
+        stats.push(10.0).unwrap();
+        assert_eq!(stats.len(), 4);
+        assert!((stats.mean().unwrap() - 7.0).abs() < 1e-9);
+        assert_eq!(stats.min(), Some(4.0));
+        assert_eq!(stats.max(), Some(10.0));
+        assert!(stats.variance().unwrap() > 0.0);
     }
 }

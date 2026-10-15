@@ -7,6 +7,7 @@ use crate::common::{FilterError, FloatOps};
 
 /// Represents an individual sensor source participating in the multi-sensor fusion pipeline.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SensorSource {
     /// Sensor unique identifier
     pub id: u8,
@@ -22,6 +23,10 @@ pub struct SensorSource {
     pub is_quarantined: bool,
     /// Health score from 0.0 (failed) to 1.0 (nominal)
     pub health_score: f64,
+    /// Consecutive healthy measurements observed while quarantined
+    pub consecutive_healthy: u32,
+    /// Threshold of consecutive healthy measurements required to auto-recover (0 to disable)
+    pub auto_recovery_threshold: u32,
 }
 
 impl SensorSource {
@@ -38,6 +43,8 @@ impl SensorSource {
             max_anomalies,
             is_quarantined: false,
             health_score: 1.0,
+            consecutive_healthy: 0,
+            auto_recovery_threshold: 0,
         })
     }
 
@@ -50,16 +57,24 @@ impl SensorSource {
         Ok(self)
     }
 
+    /// Configures automatic recovery threshold.
+    pub fn with_auto_recovery(mut self, threshold: u32) -> Self {
+        self.auto_recovery_threshold = threshold;
+        self
+    }
+
     /// Manually resets quarantine status.
     pub fn reset_quarantine(&mut self) {
         self.is_quarantined = false;
         self.anomaly_count = 0;
+        self.consecutive_healthy = 0;
         self.health_score = 1.0;
     }
 }
 
 /// A measurement packet from an identifiable sensor source.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SensorMeasurement {
     /// Sensor ID matching the configured `SensorSource`
     pub sensor_id: u8,
@@ -68,7 +83,8 @@ pub struct SensorMeasurement {
 }
 
 /// Result of a sensor fusion update step.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FusionStatus {
     /// Measurement was successfully fused into the state vector
     Fused,
@@ -78,12 +94,15 @@ pub enum FusionStatus {
     Quarantined,
     /// Measurement came from an already quarantined/disabled sensor
     IgnoredQuarantined,
+    /// Sensor met consecutive consistency criteria and was recovered from quarantine
+    Recovered,
     /// Sensor ID not registered in the fusion engine
     UnregisteredSensor,
 }
 
 /// Multi-sensor state estimator with Joseph-stabilized covariance updates and automated FDIR.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MultiSensorFusion1D<const N: usize> {
     /// Estimated state mean
     pub x: f64,
@@ -167,6 +186,23 @@ impl<const N: usize> MultiSensorFusion1D<N> {
         };
 
         if sensor.is_quarantined {
+            if sensor.auto_recovery_threshold > 0 {
+                let innovation = measurement.value - self.x;
+                let s = self.p + sensor.variance;
+                let sigma_bound = sensor.gate_threshold * s.sqrt_val();
+                if innovation.abs_val() <= sigma_bound {
+                    sensor.consecutive_healthy += 1;
+                    if sensor.consecutive_healthy >= sensor.auto_recovery_threshold {
+                        sensor.is_quarantined = false;
+                        sensor.anomaly_count = 0;
+                        sensor.health_score = 0.5;
+                        sensor.consecutive_healthy = 0;
+                        return Ok(FusionStatus::Recovered);
+                    }
+                } else {
+                    sensor.consecutive_healthy = 0;
+                }
+            }
             return Ok(FusionStatus::IgnoredQuarantined);
         }
 
@@ -179,10 +215,12 @@ impl<const N: usize> MultiSensorFusion1D<N> {
         if innovation.abs_val() > sigma_bound {
             sensor.anomaly_count += 1;
             sensor.health_score = (sensor.health_score * 0.5).max(0.0);
+            sensor.consecutive_healthy = 0;
 
             if sensor.anomaly_count >= sensor.max_anomalies {
                 sensor.is_quarantined = true;
                 sensor.health_score = 0.0;
+                sensor.consecutive_healthy = 0;
                 return Ok(FusionStatus::Quarantined);
             }
             return Ok(FusionStatus::Gated);
