@@ -102,7 +102,6 @@ pub enum FusionStatus {
 
 /// Multi-sensor state estimator with Joseph-stabilized covariance updates and automated FDIR.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MultiSensorFusion1D<const N: usize> {
     /// Estimated state mean
     pub x: f64,

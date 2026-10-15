@@ -6,7 +6,6 @@ use crate::common::{FilterError, FloatOps};
 
 /// Deterministic, zero-allocation rolling window statistics over a fixed capacity `N`.
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowedStats<const N: usize> {
     buffer: [f64; N],
     count: usize,
