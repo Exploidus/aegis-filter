@@ -1,0 +1,15 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['README.md', 'docs/**', '**/*.md', 'LICENSE*']
+
+enhancement:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**']
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['tests/**', 'benches/**', 'examples/**']
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**']

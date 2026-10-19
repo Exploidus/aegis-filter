@@ -1,4 +1,4 @@
-name: CI
+name: "exploidus-bot / CI & Verification"
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
 
 jobs:
   test:
-    name: Build & Verify (Linux, Bare-Metal no_std, Clippy)
+    name: "exploidus-bot / Build, Test & Bare-Metal Verify"
     runs-on: ubuntu-latest
 
     steps:

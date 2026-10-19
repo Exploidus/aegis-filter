@@ -1,0 +1,20 @@
+name: "exploidus-bot / PR Triage"
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  labeler:
+    name: "exploidus-bot / Auto-Label PR"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Triage & Label PR"
+        uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          sync-labels: true
