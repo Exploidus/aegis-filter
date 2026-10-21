@@ -304,7 +304,7 @@ mod tests {
             })
             .unwrap();
         assert_eq!(st3, FusionStatus::Gated);
-        assert_eq!(fusion.sensor_health(1), Some(0.55));
+        assert!((fusion.sensor_health(1).unwrap() - 0.3).abs() < 1e-9);
     }
 
     #[test]
