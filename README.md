@@ -1,6 +1,6 @@
 # aegis-filter
 
-High-integrity, deterministic, and `#![no_std]` capable state estimation and robust filtering engine written in pure Rust.
+High-integrity, target-deterministic (on a given ISA/FPU), and `#![no_std]` capable state estimation and robust filtering engine written in pure Rust.
 
 Designed for mission-critical robotics, aerospace, navigation, autonomous sensor fusion, and embedded telemetry where **numerical stability**, **fail-safe error handling**, and **adversarial/outlier resilience** are paramount.
 

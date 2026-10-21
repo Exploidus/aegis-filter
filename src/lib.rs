@@ -270,4 +270,55 @@ mod tests {
         assert_eq!(stats.max(), Some(10.0));
         assert!(stats.variance().unwrap() > 0.0);
     }
+
+    #[test]
+    fn test_fdir_consecutive_anomaly_reset() {
+        let mut fusion = MultiSensorFusion1D::<2>::new(0.0, 1.0, 0.01).unwrap();
+        // Sensor requires 2 consecutive anomalies to quarantine
+        let sensor = SensorSource::new(1, 0.2, 2).unwrap();
+        fusion.register_sensor(sensor).unwrap();
+
+        // 1. First anomaly -> Gated
+        let st1 = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 100.0,
+            })
+            .unwrap();
+        assert_eq!(st1, FusionStatus::Gated);
+
+        // 2. Interleaved healthy measurement -> Fused (breaks streak, resets anomaly_count)
+        let st2 = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 0.01,
+            })
+            .unwrap();
+        assert_eq!(st2, FusionStatus::Fused);
+
+        // 3. Second anomaly (isolated, not consecutive) -> Gated, NOT Quarantined
+        let st3 = fusion
+            .fuse(SensorMeasurement {
+                sensor_id: 1,
+                value: 100.0,
+            })
+            .unwrap();
+        assert_eq!(st3, FusionStatus::Gated);
+        assert_eq!(fusion.sensor_health(1), Some(0.55));
+    }
+
+    #[test]
+    fn test_fusion_singularity_guard() {
+        let mut fusion = MultiSensorFusion1D::<1>::new(0.0, 1.0, 0.01).unwrap();
+        let sensor = SensorSource::new(1, 0.5, 3).unwrap();
+        fusion.register_sensor(sensor).unwrap();
+
+        // Force degenerate/singular variance
+        fusion.p = -0.5;
+        let err = fusion.fuse(SensorMeasurement {
+            sensor_id: 1,
+            value: 1.0,
+        });
+        assert_eq!(err, Err(FilterError::SingularInnovation));
+    }
 }

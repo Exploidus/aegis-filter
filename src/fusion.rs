@@ -188,6 +188,9 @@ impl<const N: usize> MultiSensorFusion1D<N> {
             if sensor.auto_recovery_threshold > 0 {
                 let innovation = measurement.value - self.x;
                 let s = self.p + sensor.variance;
+                if s <= 1e-15 || !s.is_valid_float() {
+                    return Err(FilterError::SingularInnovation);
+                }
                 let sigma_bound = sensor.gate_threshold * s.sqrt_val();
                 if innovation.abs_val() <= sigma_bound {
                     sensor.consecutive_healthy += 1;
@@ -208,6 +211,9 @@ impl<const N: usize> MultiSensorFusion1D<N> {
         // Calculate innovation and innovation variance
         let innovation = measurement.value - self.x;
         let s = self.p + sensor.variance;
+        if s <= 1e-15 || !s.is_valid_float() {
+            return Err(FilterError::SingularInnovation);
+        }
         let sigma_bound = sensor.gate_threshold * s.sqrt_val();
 
         // Check innovation gate
@@ -225,8 +231,8 @@ impl<const N: usize> MultiSensorFusion1D<N> {
             return Ok(FusionStatus::Gated);
         }
 
-        // Measurement passed gate - perform Joseph-stabilized covariance update
-        sensor.anomaly_count = sensor.anomaly_count.saturating_sub(1);
+        // Measurement passed gate - reset consecutive anomaly streak and update covariance
+        sensor.anomaly_count = 0;
         sensor.health_score = (sensor.health_score + 0.1).min(1.0);
 
         let k = self.p / s;
