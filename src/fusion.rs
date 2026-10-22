@@ -101,6 +101,18 @@ pub enum FusionStatus {
 }
 
 /// Multi-sensor state estimator with Joseph-stabilized covariance updates and automated FDIR.
+///
+/// # Example
+/// ```rust
+/// use aegis_filter::{MultiSensorFusion1D, SensorSource, SensorMeasurement, FusionStatus};
+///
+/// let mut fusion = MultiSensorFusion1D::<2>::new(0.0, 1.0, 0.01).unwrap();
+/// let sensor = SensorSource::new(1, 0.2, 3).unwrap();
+/// fusion.register_sensor(sensor).unwrap();
+/// fusion.predict(0.1).unwrap();
+/// let status = fusion.fuse(SensorMeasurement { sensor_id: 1, value: 0.12 }).unwrap();
+/// assert_eq!(status, FusionStatus::Fused);
+/// ```
 #[derive(Debug, Clone)]
 pub struct MultiSensorFusion1D<const N: usize> {
     /// Estimated state mean

@@ -1,0 +1,11 @@
+# Bare-Metal Hardening Configuration for aegis-filter
+# Enforces zero-unwind abort strategy for embedded ARM Cortex-M and RISC-V targets.
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+rustflags = ["-C", "panic=abort"]
+
+[target.'cfg(all(target_arch = "riscv32", target_os = "none"))']
+rustflags = ["-C", "panic=abort"]
+
+[target.'cfg(all(target_arch = "riscv64", target_os = "none"))']
+rustflags = ["-C", "panic=abort"]

@@ -1,5 +1,15 @@
 //! aegis-filter: High-Integrity, Cyber-Resilient State Estimation & Robust Filtering Engine in pure Rust.
 //!
+//! # Quick Start Example
+//! ```rust
+//! use aegis_filter::ScalarKalmanFilter;
+//!
+//! let mut filter = ScalarKalmanFilter::new(0.0, 1.0, 0.01, 0.5).unwrap();
+//! filter.predict(0.1).unwrap();
+//! let state = filter.update(1.05, Some(3.0)).unwrap();
+//! assert!((state - 0.7).abs() < 0.5);
+//! ```
+//!
 //! # Architecture
 //! - [`linear`]: Classical and Joseph-stabilized linear Kalman filters with Mahalanobis gating.
 //! - [`unscented`]: Unscented Kalman Filter (UKF) for non-linear systems without analytical Jacobians.
@@ -114,7 +124,7 @@ mod tests {
     fn test_adaptive_filter_noise_tracking() {
         let mut af = AdaptiveFilter1D::new(0.0, 5.0, 0.01, 1.0, 0.05).unwrap();
         for _ in 0..40 {
-            af.predict(0.0);
+            af.predict(0.0).unwrap();
             let _ = af.update(20.0).unwrap();
         }
         assert!((af.x - 20.0).abs() < 0.5, "af.x = {}", af.x);
@@ -320,5 +330,146 @@ mod tests {
             value: 1.0,
         });
         assert_eq!(err, Err(FilterError::SingularInnovation));
+    }
+
+    #[test]
+    fn test_h_infinity_known_reference_gain() {
+        // Analytical benchmark test pinning Simon (2006, Eq. 11.45-11.48)
+        // Given: x0 = 0.0, P0 = 1.0, Q = 0.0, R = 0.5, gamma = 5.0
+        // Riccati Denominator: D = 1 - P/gamma^2 + P/R = 1 - 1/25 + 1/0.5 = 2.96
+        // Minimax Gain: K = P / (R * D) = 1.0 / (0.5 * 2.96) = 1.0 / 1.48
+        // When measurement z = 1.48, delta = K * residual = (1.0 / 1.48) * 1.48 = 1.0 exactly.
+        let mut h_inf = HInfinityFilter1D::new(0.0, 1.0, 0.0, 0.5, 5.0).unwrap();
+        let new_state = h_inf.update(1.48).unwrap();
+        assert!(
+            (new_state - 1.0).abs() < 1e-12,
+            "Expected exactly 1.0, got {}",
+            new_state
+        );
+        let expected_post_cov = 1.0 / 2.96;
+        assert!(
+            (h_inf.bound() - expected_post_cov).abs() < 1e-12,
+            "Expected post-update bound {}, got {}",
+            expected_post_cov,
+            h_inf.bound()
+        );
+    }
+
+    #[test]
+    fn test_h_infinity_riccati_instability_guard() {
+        // When gamma bound is tighter than physically admissible under system noise:
+        // P = 10.0, R = 1.0, gamma = 0.5 => gamma^2 = 0.25
+        // D = 1 - 10/0.25 + 10/1 = 1 - 40 + 10 = -29 <= 0
+        let mut h_inf = HInfinityFilter1D::new(0.0, 10.0, 0.0, 1.0, 0.5).unwrap();
+        let err = h_inf.update(1.0);
+        assert_eq!(err, Err(FilterError::NumericalInstability));
+    }
+
+    #[test]
+    fn test_adaptive_filter_bounds_and_prior_covariance() {
+        let mut af = AdaptiveFilter1D::new(0.0, 2.0, 0.01, 1.0, 0.1).unwrap();
+        // Severe adversarial jump: residual is 1000.0, y^2 = 1e6
+        af.predict(0.0).unwrap();
+        let _ = af.update(1000.0).unwrap();
+        // Online R estimate must be clamped within upper bound (<= 1e6)
+        assert!(af.estimated_measurement_noise() <= 1e6);
+        assert!(af.estimated_measurement_noise() >= 1e-6);
+
+        // Sub-noise tiny measurement where y^2 < P_prior:
+        for _ in 0..20 {
+            af.predict(0.0).unwrap();
+            let _ = af.update(af.x).unwrap();
+        }
+        // Online R estimate must stay strictly positive, never collapsing below 1e-6
+        assert!(af.estimated_measurement_noise() >= 1e-6);
+    }
+
+    #[test]
+    fn test_capacity_exceeded_error() {
+        let mut fusion = MultiSensorFusion1D::<2>::new(0.0, 1.0, 0.01).unwrap();
+        let s1 = SensorSource::new(1, 0.2, 3).unwrap();
+        let s2 = SensorSource::new(2, 0.3, 3).unwrap();
+        let s3 = SensorSource::new(3, 0.4, 3).unwrap();
+
+        assert_eq!(fusion.register_sensor(s1), Ok(()));
+        assert_eq!(fusion.register_sensor(s2), Ok(()));
+        // Array capacity is 2; 3rd sensor must return CapacityExceeded
+        assert_eq!(
+            fusion.register_sensor(s3),
+            Err(FilterError::CapacityExceeded)
+        );
+    }
+
+    #[test]
+    fn test_invalid_parameter_error() {
+        assert_eq!(
+            SensorSource::new(1, 0.0, 3).err(),
+            Some(FilterError::InvalidParameter)
+        );
+        assert_eq!(
+            SensorSource::new(1, -0.5, 3).err(),
+            Some(FilterError::InvalidParameter)
+        );
+        let s = SensorSource::new(1, 0.5, 3).unwrap();
+        assert_eq!(
+            s.with_gate_threshold(0.0).err(),
+            Some(FilterError::InvalidParameter)
+        );
+        assert_eq!(
+            MultiSensorFusion1D::<1>::new(0.0, -1.0, 0.01).err(),
+            Some(FilterError::InvalidParameter)
+        );
+    }
+
+    #[test]
+    fn test_invalid_covariance_error() {
+        assert_eq!(
+            ScalarKalmanFilter::new(0.0, 0.0, 0.01, 0.5).err(),
+            Some(FilterError::InvalidCovariance)
+        );
+        assert_eq!(
+            ScalarKalmanFilter::new(0.0, -1.0, 0.01, 0.5).err(),
+            Some(FilterError::InvalidCovariance)
+        );
+        assert_eq!(
+            HInfinityFilter1D::new(0.0, 1.0, 0.01, 0.5, 0.0).err(),
+            Some(FilterError::InvalidCovariance)
+        );
+        assert_eq!(
+            AdaptiveFilter1D::new(0.0, 1.0, 0.01, 0.5, 1.5).err(),
+            Some(FilterError::InvalidCovariance)
+        );
+    }
+
+    #[test]
+    fn test_zero_panics_property_stress() {
+        let extreme_floats = [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            0.0,
+            -0.0,
+            f64::MIN_POSITIVE,
+            f64::MAX,
+            -f64::MAX,
+            1e-300,
+            1e300,
+        ];
+
+        let mut kf = ScalarKalmanFilter::new(0.0, 1.0, 0.01, 0.5).unwrap();
+        let mut hinf = HInfinityFilter1D::new(0.0, 1.0, 0.01, 0.5, 5.0).unwrap();
+        let mut af = AdaptiveFilter1D::new(0.0, 1.0, 0.01, 0.5, 0.05).unwrap();
+
+        for &val in &extreme_floats {
+            // Predict calls must never panic
+            let _ = kf.predict(val);
+            let _ = hinf.predict(val);
+            let _ = af.predict(val);
+
+            // Update calls must return Result, never panic
+            let _ = kf.update(val, Some(3.0));
+            let _ = hinf.update(val);
+            let _ = af.update(val);
+        }
     }
 }

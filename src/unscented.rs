@@ -11,6 +11,21 @@ use crate::common::{FilterError, FloatOps};
 ///
 /// Designed to replace linear KF and Extended Kalman Filter (EKF)
 /// in non-linear tracking problems (e.g. radar range, pendulums, angle transformations).
+///
+/// # Example
+/// ```rust
+/// use aegis_filter::UnscentedKalmanFilter2D;
+///
+/// let mut ukf = UnscentedKalmanFilter2D::new(
+///     [0.0, 0.0],
+///     [[1.0, 0.0], [0.0, 1.0]],
+///     [[0.01, 0.0], [0.0, 0.01]],
+///     0.5,
+/// ).unwrap();
+/// ukf.predict(0.1, |x, _dt| [x[0] + 0.1, x[1]]).unwrap();
+/// let est = ukf.update(1.0, |x| x[0], None).unwrap();
+/// assert!(est[0] > 0.0);
+/// ```
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnscentedKalmanFilter2D {

@@ -6,8 +6,15 @@ use std::time::Instant;
 fn main() {
     println!("===============================================================================");
     println!("  AEGIS-FILTER :: PERFORMANCE & EXECUTION LATENCY BENCHMARK");
-    println!("  Developed under Exploidus (https://github.com/Exploidus)");
     println!("===============================================================================\n");
+
+    #[cfg(debug_assertions)]
+    {
+        eprintln!(
+            "[NOTE] Running in debug mode. Latency figures include debug assertion overhead."
+        );
+        eprintln!("[NOTE] Run with `cargo run --example benchmark --release` for true zero-cost telemetry latency.\n");
+    }
 
     const ITERATIONS: u64 = 1_000_000;
 
@@ -66,6 +73,7 @@ fn main() {
     }
 
     println!("\n-------------------------------------------------------------------------------");
-    println!("  Zero heap allocations. Deterministic, hard real-time latency profile.");
+    println!("  Zero heap allocations. Deterministic latency profile.");
+    println!("  Release-profile latency measured; verify on physical target hardware.");
     println!("===============================================================================");
 }

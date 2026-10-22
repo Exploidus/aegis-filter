@@ -102,7 +102,7 @@ cargo run --example flight_telemetry
 cargo run --example radar_tracking_ukf
 
 # 3. Execution Latency & Nanosecond Benchmark (1,000,000 iterations profile)
-cargo run --example benchmark
+cargo run --example benchmark --release
 
 # 4. Multi-Sensor Fusion & Automated FDIR (GPS spoof quarantine & Baro/LiDAR handover)
 cargo run --example sensor_fault_fdir

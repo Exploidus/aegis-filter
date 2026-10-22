@@ -3,6 +3,16 @@
 use crate::common::{FilterError, FloatOps};
 
 /// 1D Scalar Kalman Filter with Joseph-stabilized variance update.
+///
+/// # Example
+/// ```rust
+/// use aegis_filter::ScalarKalmanFilter;
+///
+/// let mut filter = ScalarKalmanFilter::new(0.0, 1.0, 0.01, 0.5).unwrap();
+/// filter.predict(0.1).unwrap();
+/// let est = filter.update(1.05, Some(3.0)).unwrap();
+/// assert!(est > 0.0);
+/// ```
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ScalarKalmanFilter {

@@ -35,3 +35,7 @@ jobs:
 
       - name: Verify Pure #![no_std] Core Compilation (Bare-Metal target)
         run: cargo check --no-default-features --target thumbv7em-none-eabihf
+
+      - name: Verify Bare-Metal Release Build & Hardening (panic=abort)
+        run: cargo build --release --no-default-features --target thumbv7em-none-eabihf
+
