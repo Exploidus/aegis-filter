@@ -18,7 +18,15 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(all(not(feature = "std"), target_os = "none"))]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
 pub mod common;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 pub mod fusion;
 pub mod linear;
 pub mod robust;

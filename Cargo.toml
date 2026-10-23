@@ -10,13 +10,18 @@ repository = "https://github.com/Exploidus/aegis-filter"
 keywords = ["kalman-filter", "state-estimation", "sensor-fusion", "no-std", "aerospace"]
 categories = ["algorithms", "embedded", "no-std", "science::robotics"]
 
+[lib]
+name = "aegis_filter"
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [features]
-default = ["std"]
+default = ["std", "ffi"]
 std = []
 serde = ["dep:serde"]
+ffi = []
 
 [profile.dev]
 panic = "abort"
