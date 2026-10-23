@@ -37,21 +37,21 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-aegis-filter = "0.3.0"
+aegis-filter = "0.3.1"
 ```
 
 For `#![no_std]` environments (bare-metal):
 
 ```toml
 [dependencies]
-aegis-filter = { version = "0.3.0", default-features = false }
+aegis-filter = { version = "0.3.1", default-features = false }
 ```
 
 With optional `serde` support for state persistence and telemetry serialization:
 
 ```toml
 [dependencies]
-aegis-filter = { version = "0.3.0", features = ["serde"] }
+aegis-filter = { version = "0.3.1", features = ["serde"] }
 ```
 
 ---
@@ -107,6 +107,27 @@ cargo run --example benchmark --release
 # 4. Multi-Sensor Fusion & Automated FDIR (GPS spoof quarantine & Baro/LiDAR handover)
 cargo run --example sensor_fault_fdir
 ```
+
+---
+
+## C-FFI & Multi-Language Integration
+
+`aegis-filter` exports a zero-allocation, panic-safe C-compatible FFI (`extern "C"`) layer, allowing seamless integration into existing C/C++ embedded stacks, robotics frameworks (e.g., ROS 2, PX4), and real-time control runtimes:
+
+- **Header File**: [`include/aegis_filter.h`](include/aegis_filter.h) with complete Doxygen annotations.
+- **Static Library Build**:
+  ```bash
+  cargo build --release --features ffi
+  ```
+  Produces `libaegis_filter.a` for direct linking with C/C++ toolchains (GCC, Clang, MSVC).
+
+### Integration Example: NASA F Prime GNC Component
+
+The repository includes a reference adapter demonstrating how to bind `aegis-filter` into flight software architectures such as NASA's [F Prime](https://nasa.github.io/fprime/) framework:
+
+- Location: [`fprime/AegisGncFilter`](fprime/AegisGncFilter)
+- Provides FPP topology definition, C++ wrapper, and CMake configuration linking the static Rust library into a mission telemetry and GNC state estimation pipeline.
+- See [`fprime/README.md`](fprime/README.md) for architecture details and build steps.
 
 ---
 
