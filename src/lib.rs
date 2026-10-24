@@ -116,6 +116,55 @@ mod tests {
     }
 
     #[test]
+    fn test_ukf_predict_update_characterization() {
+        // Golden pins for the unscented propagation and update paths, guarding the
+        // iterator refactor in issue #19. Captured from the current implementation;
+        // reordering the weighted sums would shift these beyond 1e-12.
+        let mut ukf = UnscentedKalmanFilter2D::new(
+            [0.0, 0.0],
+            [[1.0, 0.0], [0.0, 1.0]],
+            [[0.01, 0.0], [0.0, 0.01]],
+            0.5,
+        )
+        .unwrap();
+
+        ukf.predict(0.1, |x, _dt| [x[0] + 0.1, x[1]]).unwrap();
+        let est = ukf.update(1.0, |x| x[0], None).unwrap();
+        assert!(
+            (est[0] - 0.7019867549668872).abs() < 1e-12,
+            "est[0] = {}",
+            est[0]
+        );
+        assert!((est[1] - 0.0).abs() < 1e-12, "est[1] = {}", est[1]);
+        assert!(
+            (ukf.p[0][0] - 0.3344370860927156).abs() < 1e-12,
+            "p00 = {}",
+            ukf.p[0][0]
+        );
+        assert!(
+            (ukf.p[1][1] - 1.0099999999999998).abs() < 1e-12,
+            "p11 = {}",
+            ukf.p[1][1]
+        );
+
+        // A second step with a non-trivial transition exercises the covariance
+        // propagation (x1 drift) and the innovation / cross-covariance sums.
+        ukf.predict(0.1, |x, _dt| [x[0] + 0.1, x[1] + 0.05])
+            .unwrap();
+        let est2 = ukf.update(1.2, |x| x[0], None).unwrap();
+        assert!(
+            (est2[0] - 0.9643322092384911).abs() < 1e-12,
+            "est2[0] = {}",
+            est2[0]
+        );
+        assert!(
+            (est2[1] - 0.050000000000000044).abs() < 1e-12,
+            "est2[1] = {}",
+            est2[1]
+        );
+    }
+
+    #[test]
     fn test_h_infinity_robustness() {
         let mut h_inf = HInfinityFilter1D::new(10.0, 1.0, 0.05, 0.5, 5.0).unwrap();
 
