@@ -307,25 +307,32 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
                     }
                 }
                 // stat is theoretically >= 0; guard round-off that could dip below zero.
-                let mahal = stat.sqrt_val();
+                let mahal = stat.max(0.0).sqrt_val();
                 if mahal > gate_sigma {
                     return Err(FilterError::MeasurementGated);
                 }
             }
         }
 
-        // Kalman gain K = P H^T S^-1  (S x M).
+        // Kalman gain K = P H^T S^-1  (S x M), computed as two matrix products.
+        // 1. A = P H^T  (S x M):  A[i][l] = sum_t P[i][t] H[l][t]
+        let mut p_ht = [[0.0; M]; S];
+        for i in 0..S {
+            for l in 0..M {
+                let mut acc = 0.0;
+                for t in 0..S {
+                    acc += p[i][t] * h[l][t];
+                }
+                p_ht[i][l] = acc;
+            }
+        }
+        // 2. K = A S^-1  (S x M):  K[i][j] = sum_l P_H_T[i][l] S^-1[l][j]
         let mut k = [[0.0; M]; S];
         for i in 0..S {
             for j in 0..M {
-                // (P H^T)[i][l] = sum_t P[i][t] H[j][t]
-                let mut phi_il = 0.0;
-                for t in 0..S {
-                    phi_il += p[i][t] * h[j][t];
-                }
                 let mut acc = 0.0;
                 for l in 0..M {
-                    acc += phi_il * s_inv[l][j];
+                    acc += p_ht[i][l] * s_inv[l][j];
                 }
                 k[i][j] = acc;
             }
@@ -612,5 +619,27 @@ mod tests {
             f.update(&[f64::INFINITY], None).err(),
             Some(FilterError::NonFiniteInput)
         );
+    }
+
+    // (9) Non-diagonal H with correlated (non-diagonal) measurement error must use the true
+    // K = P H^T S^-1, not a column-sum of S^-1. With P=I, H=[[1,1],[0,1]], R=I the
+    // innovation covariance is S = H H^T + I = [[3,1],[1,2]], inverse [[2/5,-1/5],[-1/5,3/5]],
+    // so K = H^T S^-1 = [[0.4,-0.2],[0.2,0.4]]; with x=0, x_new = K * z.
+    // z=[4,2] is chosen so the off-diagonal K[0][1] (correct -0.2, old bug 0) is exposed:
+    // the old index bug gave x_new[0] = 0.8 instead of 1.2.
+    #[test]
+    fn test_linear_update_k_non_diagonal_correlated() {
+        let mut f = LinearKalmanFilter::<2, 2>::new(
+            [0.0, 0.0],
+            [[1.0, 0.0], [0.0, 1.0]],
+            [[1.0, 0.0], [0.0, 1.0]],
+            [[0.0, 0.0], [0.0, 0.0]],
+            [[1.0, 1.0], [0.0, 1.0]], // non-diagonal H
+            [[1.0, 0.0], [0.0, 1.0]],
+        )
+        .unwrap();
+        let out = f.update(&[4.0, 2.0], None).unwrap();
+        assert!((out[0] - 1.2).abs() < 1e-9, "out[0] = {}", out[0]);
+        assert!((out[1] - 1.6).abs() < 1e-9, "out[1] = {}", out[1]);
     }
 }
