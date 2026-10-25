@@ -1,5 +1,8 @@
 //! Core mathematical types, errors, and `#![no_std]` floating point helpers.
 
+/// Standard recommended 3-sigma innovation threshold for outlier and anomaly rejection.
+pub const DEFAULT_OUTLIER_GATE_SIGMA: f64 = 3.0;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FilterError {

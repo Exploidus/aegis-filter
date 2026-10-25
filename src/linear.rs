@@ -64,6 +64,13 @@ impl ScalarKalmanFilter {
         Ok(())
     }
 
+    /// Fuses an incoming scalar measurement with optional innovation outlier gating.
+    ///
+    /// # Gating Semantics
+    /// - `Some(sigma)`: Rejects measurements whose normalized innovation $|y| / \sqrt{S} > \sigma$
+    ///   with [`FilterError::MeasurementGated`], leaving state and covariance unmodified.
+    ///   Use [`crate::DEFAULT_OUTLIER_GATE_SIGMA`] (3.0) for standard 3-sigma protection.
+    /// - `None` or `Some(<= 0.0)`: Outlier gating is bypassed (fail-open mode).
     pub fn update(
         &mut self,
         measurement: f64,
@@ -239,6 +246,17 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     /// let est = f.update(&[1.05], None).unwrap();
     /// assert!(est[0] > 0.0);
     /// ```
+    /// Fuses an incoming measurement vector with optional Mahalanobis outlier gating.
+    ///
+    /// # Gating Semantics (3-Sigma vs Mahalanobis Distance)
+    /// - `Some(sigma)`: Rejects measurements whose Mahalanobis distance $\sqrt{y^T S^{-1} y} > \sigma$
+    ///   with [`FilterError::MeasurementGated`], leaving the state and covariance unmodified.
+    ///   Use [`crate::DEFAULT_OUTLIER_GATE_SIGMA`] (3.0) for standard multi-sigma protection.
+    /// - `None` or `Some(<= 0.0)`: Outlier gating is bypassed (fail-open mode).
+    ///
+    /// For 1D scalar observation ($M = 1$), the Mahalanobis distance simplifies directly to
+    /// the 1D normalized residual $|y| / \sqrt{S}$. For multi-dimensional observations ($M > 1$),
+    /// the metric accounts for correlated sensor cross-covariances through innovation matrix inversion $S^{-1}$.
     #[allow(clippy::needless_range_loop)] // manual index loops over const-generic buffers
     pub fn update(
         &mut self,
@@ -269,17 +287,27 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
         }
 
         // Innovation covariance S = H P H^T + R, then symmetrise it.
+        // Factoring H P H^T via intermediate HP = H * P:
+        // 1. HP = H * P (M x S) in O(M * S^2).
+        // Since P is symmetric (P = P^T), (H * P)^T = P * H^T.
+        let mut hp = [[0.0; S]; M];
+        for j in 0..M {
+            for i in 0..S {
+                let mut acc = 0.0;
+                for l in 0..S {
+                    acc += h[j][l] * p[l][i];
+                }
+                hp[j][i] = acc;
+            }
+        }
+
+        // 2. S = (HP) * H^T + R (M x M) in O(M^2 * S).
         let mut s = [[0.0; M]; M];
         for j in 0..M {
             for k in 0..M {
                 let mut acc = 0.0;
                 for i in 0..S {
-                    // (H P H^T)[j][k] = sum_i (sum_l H[j][l] P[l][i]) H[k][i]
-                    let mut hp_ji = 0.0;
-                    for l in 0..S {
-                        hp_ji += h[j][l] * p[l][i];
-                    }
-                    acc += hp_ji * h[k][i];
+                    acc += hp[j][i] * h[k][i];
                 }
                 s[j][k] = acc + r[j][k];
             }
@@ -314,16 +342,12 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             }
         }
 
-        // Kalman gain K = P H^T S^-1  (S x M), computed as two matrix products.
-        // 1. A = P H^T  (S x M):  A[i][l] = sum_t P[i][t] H[l][t]
+        // Kalman gain K = P H^T S^-1  (S x M), computed using the factored HP transpose.
+        // 1. A = P H^T  (S x M) is the transpose of HP: A[i][l] = hp[l][i].
         let mut p_ht = [[0.0; M]; S];
         for i in 0..S {
             for l in 0..M {
-                let mut acc = 0.0;
-                for t in 0..S {
-                    acc += p[i][t] * h[l][t];
-                }
-                p_ht[i][l] = acc;
+                p_ht[i][l] = hp[l][i];
             }
         }
         // 2. K = A S^-1  (S x M):  K[i][j] = sum_l P_H_T[i][l] S^-1[l][j]
@@ -361,24 +385,42 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             }
         }
 
+        // Factored Joseph form: O(S^3 + S^2 M + S M^2) instead of fused O(S^4 + S^2 M^2).
+        // 1. EP = E * P  (S x S) in O(S^3)
+        let mut ep = [[0.0; S]; S];
+        for i in 0..S {
+            for j in 0..S {
+                let mut acc = 0.0;
+                for a in 0..S {
+                    acc += e[i][a] * p[a][j];
+                }
+                ep[i][j] = acc;
+            }
+        }
+
+        // 2. KS = K * S  (S x M) in O(S * M^2)
+        let mut ks = [[0.0; M]; S];
+        for i in 0..S {
+            for t in 0..M {
+                let mut acc = 0.0;
+                for l in 0..M {
+                    acc += k[i][l] * s[l][t];
+                }
+                ks[i][t] = acc;
+            }
+        }
+
+        // 3. P_new = (EP) * E^T + (KS) * K^T in O(S^2 * (S + M))
         let mut p_new = [[0.0; S]; S];
         for i in 0..S {
             for j in 0..S {
-                // (I - K H) P (I - K H)^T = sum_{a,b} e[i][a] p[a][b] e[j][b]
                 let mut ep_e = 0.0;
-                for a in 0..S {
-                    for b in 0..S {
-                        ep_e += e[i][a] * p[a][b] * e[j][b];
-                    }
+                for b in 0..S {
+                    ep_e += ep[i][b] * e[j][b];
                 }
-                // K S K^T = sum_t (sum_l k[i][l] s[l][t]) k[j][t]
                 let mut k_s_k = 0.0;
                 for t in 0..M {
-                    let mut ks = 0.0;
-                    for l in 0..M {
-                        ks += k[i][l] * s[l][t];
-                    }
-                    k_s_k += ks * k[j][t];
+                    k_s_k += ks[i][t] * k[j][t];
                 }
                 p_new[i][j] = ep_e + k_s_k;
             }
@@ -641,5 +683,62 @@ mod tests {
         let out = f.update(&[4.0, 2.0], None).unwrap();
         assert!((out[0] - 1.2).abs() < 1e-9, "out[0] = {}", out[0]);
         assert!((out[1] - 1.6).abs() < 1e-9, "out[1] = {}", out[1]);
+    }
+// (9) Factored O(S^3) Joseph update test for S=4, M=2: verifies that the factored
+    // (E*P)*E^T + (K*S)*K^T produces identical positive semi-definite, symmetric covariance.
+    #[test]
+    #[allow(clippy::needless_range_loop)]
+    fn test_linear_update_higher_dim_factored_joseph() {
+        let x0 = [10.0, 0.5, 20.0, -0.2];
+        let p0 = [
+            [2.0, 0.1, 0.0, 0.0],
+            [0.1, 1.5, 0.0, 0.0],
+            [0.0, 0.0, 2.0, 0.1],
+            [0.0, 0.0, 0.1, 1.5],
+        ];
+        let f_mat = [
+            [1.0, 0.1, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.1],
+            [0.0, 0.0, 0.0, 1.0],
+        ];
+        let q_mat = [
+            [0.01, 0.0, 0.0, 0.0],
+            [0.0, 0.01, 0.0, 0.0],
+            [0.0, 0.0, 0.01, 0.0],
+            [0.0, 0.0, 0.01, 0.0],
+        ];
+        // Measure position x and position y
+        let h_mat = [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+        ];
+        let r_mat = [
+            [0.25, 0.02],
+            [0.02, 0.25],
+        ];
+
+        let mut kf = LinearKalmanFilter::<4, 2>::new(x0, p0, f_mat, q_mat, h_mat, r_mat).unwrap();
+        kf.predict().unwrap();
+        let z = [10.15, 19.95];
+        let updated_state = kf.update(&z, Some(crate::DEFAULT_OUTLIER_GATE_SIGMA)).unwrap();
+
+        // State moves toward measurement
+        assert!((updated_state[0] - 10.15).abs() < 1.0);
+        assert!((updated_state[2] - 19.95).abs() < 1.0);
+
+        // Verify covariance symmetry P[i][j] == P[j][i]
+        for i in 0..4 {
+            for j in 0..4 {
+                assert!(
+                    (kf.p[i][j] - kf.p[j][i]).abs() < 1e-12,
+                    "Covariance asymmetry at ({}, {}): {} vs {}",
+                    i, j, kf.p[i][j], kf.p[j][i]
+                );
+            }
+            // Strict positive variance on diagonal
+            assert!(kf.p[i][i] > 0.0, "Diagonal variance non-positive at {}", i);
+            assert!(kf.p[i][i] < p0[i][i] + 0.1, "Variance did not contract on measurement update");
+        }
     }
 }

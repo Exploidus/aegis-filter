@@ -132,7 +132,16 @@ pub unsafe extern "C" fn aegis_scalar_filter_predict(
     }
 }
 
+/// Default recommended 3-sigma innovation gating threshold for adversarial outlier rejection.
+pub const AEGIS_DEFAULT_GATE_SIGMA: f64 = 3.0;
+
 /// Fuses incoming measurement with optional Mahalanobis 3-sigma innovation gating.
+///
+/// # Security & Gating Semantics
+/// - Passing a positive `gate_threshold_sigma` (e.g. `AEGIS_DEFAULT_GATE_SIGMA = 3.0`) enables
+///   adversarial innovation gating. Outliers exceeding this threshold are rejected with
+///   status code [`AegisStatusCode::MeasurementGated`] (-4) and the filter state is left untouched.
+/// - Passing `0.0` or a negative value explicitly disables innovation gating (fail-open mode).
 #[no_mangle]
 pub unsafe extern "C" fn aegis_scalar_filter_update(
     filter: *mut AegisScalarFilter,

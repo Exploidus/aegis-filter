@@ -29,11 +29,11 @@ use crate::common::{FilterError, FloatOps};
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnscentedKalmanFilter2D {
-    /// State mean [x0, x1]
+    /// State mean `[x0, x1]`
     pub x: [f64; 2],
-    /// State covariance [2x2]
+    /// State covariance `[2x2]`
     pub p: [[f64; 2]; 2],
-    /// Process noise covariance [2x2]
+    /// Process noise covariance `[2x2]`
     pub q: [[f64; 2]; 2],
     /// Measurement noise variance (R)
     pub r: f64,
