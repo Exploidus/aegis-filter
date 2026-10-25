@@ -33,7 +33,7 @@ pub mod robust;
 pub mod stats;
 pub mod unscented;
 
-pub use common::{DEFAULT_OUTLIER_GATE_SIGMA, FilterError};
+pub use common::{FilterError, DEFAULT_OUTLIER_GATE_SIGMA};
 pub use fusion::{FusionStatus, MultiSensorFusion1D, SensorMeasurement, SensorSource};
 pub use linear::{LinearKalmanFilter, ScalarKalmanFilter};
 pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};

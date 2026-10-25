@@ -684,7 +684,7 @@ mod tests {
         assert!((out[0] - 1.2).abs() < 1e-9, "out[0] = {}", out[0]);
         assert!((out[1] - 1.6).abs() < 1e-9, "out[1] = {}", out[1]);
     }
-// (9) Factored O(S^3) Joseph update test for S=4, M=2: verifies that the factored
+    // (9) Factored O(S^3) Joseph update test for S=4, M=2: verifies that the factored
     // (E*P)*E^T + (K*S)*K^T produces identical positive semi-definite, symmetric covariance.
     #[test]
     #[allow(clippy::needless_range_loop)]
@@ -709,19 +709,15 @@ mod tests {
             [0.0, 0.0, 0.01, 0.0],
         ];
         // Measure position x and position y
-        let h_mat = [
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-        ];
-        let r_mat = [
-            [0.25, 0.02],
-            [0.02, 0.25],
-        ];
+        let h_mat = [[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]];
+        let r_mat = [[0.25, 0.02], [0.02, 0.25]];
 
         let mut kf = LinearKalmanFilter::<4, 2>::new(x0, p0, f_mat, q_mat, h_mat, r_mat).unwrap();
         kf.predict().unwrap();
         let z = [10.15, 19.95];
-        let updated_state = kf.update(&z, Some(crate::DEFAULT_OUTLIER_GATE_SIGMA)).unwrap();
+        let updated_state = kf
+            .update(&z, Some(crate::DEFAULT_OUTLIER_GATE_SIGMA))
+            .unwrap();
 
         // State moves toward measurement
         assert!((updated_state[0] - 10.15).abs() < 1.0);
@@ -733,12 +729,18 @@ mod tests {
                 assert!(
                     (kf.p[i][j] - kf.p[j][i]).abs() < 1e-12,
                     "Covariance asymmetry at ({}, {}): {} vs {}",
-                    i, j, kf.p[i][j], kf.p[j][i]
+                    i,
+                    j,
+                    kf.p[i][j],
+                    kf.p[j][i]
                 );
             }
             // Strict positive variance on diagonal
             assert!(kf.p[i][i] > 0.0, "Diagonal variance non-positive at {}", i);
-            assert!(kf.p[i][i] < p0[i][i] + 0.1, "Variance did not contract on measurement update");
+            assert!(
+                kf.p[i][i] < p0[i][i] + 0.1,
+                "Variance did not contract on measurement update"
+            );
         }
     }
 }
