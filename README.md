@@ -37,21 +37,21 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-aegis-filter = "0.3.1"
+aegis-filter = "0.4.0"
 ```
 
 For `#![no_std]` environments (bare-metal):
 
 ```toml
 [dependencies]
-aegis-filter = { version = "0.3.1", default-features = false }
+aegis-filter = { version = "0.4.0", default-features = false }
 ```
 
 With optional `serde` support for state persistence and telemetry serialization:
 
 ```toml
 [dependencies]
-aegis-filter = { version = "0.3.1", features = ["serde"] }
+aegis-filter = { version = "0.4.0", features = ["serde"] }
 ```
 
 ---

@@ -491,7 +491,8 @@ mod tests {
             let status = aegis_scalar_filter_update(&mut filter, 9999.0, 0.0, &mut out);
             assert_eq!(status, AegisStatusCode::MeasurementGated);
             // Passing explicit AEGIS_GATE_DISABLE (-1.0) allows through
-            let status = aegis_scalar_filter_update(&mut filter, 1.05, AEGIS_GATE_DISABLE, &mut out);
+            let status =
+                aegis_scalar_filter_update(&mut filter, 1.05, AEGIS_GATE_DISABLE, &mut out);
             assert_eq!(status, AegisStatusCode::Ok);
         }
     }

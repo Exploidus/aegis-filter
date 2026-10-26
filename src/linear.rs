@@ -59,7 +59,12 @@ impl ScalarKalmanFilter {
         process_noise: f64,
         measurement_noise: f64,
     ) -> Result<Self, FilterError> {
-        let mut filter = Self::new(initial_state, initial_variance, process_noise, measurement_noise)?;
+        let mut filter = Self::new(
+            initial_state,
+            initial_variance,
+            process_noise,
+            measurement_noise,
+        )?;
         filter.default_gate = Some(crate::DEFAULT_OUTLIER_GATE_SIGMA);
         Ok(filter)
     }
@@ -863,8 +868,14 @@ mod tests {
 
         // Same for LinearKalmanFilter
         let mut f_linear = LinearKalmanFilter::<1, 1>::new_resilient(
-            [0.0], [[1.0]], [[1.0]], [[0.01]], [[1.0]], [[0.5]]
-        ).unwrap();
+            [0.0],
+            [[1.0]],
+            [[1.0]],
+            [[0.01]],
+            [[1.0]],
+            [[0.5]],
+        )
+        .unwrap();
         let err_linear = f_linear.update(&[1000.0], None);
         assert_eq!(err_linear, Err(FilterError::MeasurementGated));
     }
