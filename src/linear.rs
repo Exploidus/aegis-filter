@@ -23,6 +23,7 @@ pub struct ScalarKalmanFilter {
 }
 
 impl ScalarKalmanFilter {
+    #[allow(clippy::needless_range_loop)]
     pub fn new(
         initial_state: f64,
         initial_variance: f64,
@@ -132,6 +133,7 @@ pub struct LinearKalmanFilter<const S: usize, const M: usize> {
 }
 
 impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
+    #[allow(clippy::needless_range_loop)]
     pub fn new(
         initial_x: [f64; S],
         initial_p: [[f64; S]; S],
@@ -150,6 +152,22 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
         Self::validate_matrix(&q)?;
         Self::validate_matrix(&h)?;
         Self::validate_matrix(&r)?;
+
+        // Physical covariance validation: diagonal variances must be non-negative,
+        // and initial state uncertainty P must be strictly positive.
+        for i in 0..S {
+            if initial_p[i][i] <= 0.0 {
+                return Err(FilterError::InvalidCovariance);
+            }
+            if q[i][i] < 0.0 {
+                return Err(FilterError::InvalidCovariance);
+            }
+        }
+        for j in 0..M {
+            if r[j][j] < 0.0 {
+                return Err(FilterError::InvalidCovariance);
+            }
+        }
 
         Ok(Self {
             x: initial_x,
@@ -215,6 +233,17 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             }
         }
 
+        for i in 0..S {
+            if !x_pred[i].is_finite() {
+                return Err(FilterError::NonFiniteInput);
+            }
+            for j in 0..S {
+                if !p_pred[i][j].is_finite() {
+                    return Err(FilterError::NonFiniteInput);
+                }
+            }
+        }
+
         self.x = x_pred;
         self.p = p_pred;
         Ok(())
@@ -225,7 +254,7 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     /// This generalises the 1D [`ScalarKalmanFilter::update`] to the multi-dimensional
     /// case, keeping the same guarantees:
     ///
-    /// * **Joseph stabilised covariance update.** After `P = (I - K H) P (I - K H)^T + K S K^T`
+    /// * **Joseph stabilised covariance update.** After `P = (I - K H) P (I - K H)^T + K R K^T`
     ///   the posterior is symmetric by construction and stays positive semi-definite under
     ///   finite round-off, which the naive `P - K S K^T` subtraction form cannot promise.
     /// * **Gating.** With `gate_threshold_sigma` set, the measurement is rejected as an outlier
@@ -372,7 +401,7 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             x_new[i] = x[i] + acc;
         }
 
-        // Joseph covariance update: P = (I - K H) P (I - K H)^T + K S K^T.
+        // Joseph covariance update: P = (I - K H) P (I - K H)^T + K R K^T.
         // I - K H is S x S.
         let mut e = [[0.0; S]; S];
         for i in 0..S {
@@ -398,19 +427,19 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             }
         }
 
-        // 2. KS = K * S  (S x M) in O(S * M^2)
-        let mut ks = [[0.0; M]; S];
+        // 2. KR = K * R  (S x M) in O(S * M^2)
+        let mut kr = [[0.0; M]; S];
         for i in 0..S {
             for t in 0..M {
                 let mut acc = 0.0;
                 for l in 0..M {
-                    acc += k[i][l] * s[l][t];
+                    acc += k[i][l] * r[l][t];
                 }
-                ks[i][t] = acc;
+                kr[i][t] = acc;
             }
         }
 
-        // 3. P_new = (EP) * E^T + (KS) * K^T in O(S^2 * (S + M))
+        // 3. P_new = (EP) * E^T + (KR) * K^T in O(S^2 * (S + M))
         let mut p_new = [[0.0; S]; S];
         for i in 0..S {
             for j in 0..S {
@@ -418,11 +447,11 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
                 for b in 0..S {
                     ep_e += ep[i][b] * e[j][b];
                 }
-                let mut k_s_k = 0.0;
+                let mut k_r_k = 0.0;
                 for t in 0..M {
-                    k_s_k += ks[i][t] * k[j][t];
+                    k_r_k += kr[i][t] * k[j][t];
                 }
-                p_new[i][j] = ep_e + k_s_k;
+                p_new[i][j] = ep_e + k_r_k;
             }
         }
 
@@ -595,7 +624,8 @@ mod tests {
     }
 
     // (5) Joseph form must keep P symmetric and positive on the diagonals. For the
-    // H=I, P=I, R=I case the posterior covariance is the analytic 0.75 * I.
+    // H=I, P=I, R=I case the posterior covariance is the analytic 0.50 * I:
+    // P = (I - KH) P (I - KH)^T + K R K^T = 0.25 I + 0.25 I = 0.50 I.
     #[test]
     fn test_linear_update_joseph_symmetry_and_psd() {
         let mut f = LinearKalmanFilter::<2, 2>::new(
@@ -611,9 +641,9 @@ mod tests {
         // Symmetry: off-diagonals match on both triangles.
         assert!((f.p[0][1] - f.p[1][0]).abs() < 1e-9, "off-diag mismatch");
         assert!((f.p[0][1]).abs() < 1e-9, "off-diag = {}", f.p[0][1]);
-        // Diagonals: analytic 0.75, and strictly positive (PSD lower bound).
-        assert!((f.p[0][0] - 0.75).abs() < 1e-9, "p00 = {}", f.p[0][0]);
-        assert!((f.p[1][1] - 0.75).abs() < 1e-9, "p11 = {}", f.p[1][1]);
+        // Diagonals: analytic 0.50, and strictly positive (PSD lower bound).
+        assert!((f.p[0][0] - 0.50).abs() < 1e-9, "p00 = {}", f.p[0][0]);
+        assert!((f.p[1][1] - 0.50).abs() < 1e-9, "p11 = {}", f.p[1][1]);
     }
 
     // (6) Gating: a far-off M=1 measurement is rejected (3-sigma gate) and the state

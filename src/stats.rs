@@ -45,6 +45,9 @@ impl<const N: usize> WindowedStats<N> {
 
     /// Pushes a new sample into the window, overwriting the oldest sample if capacity is reached.
     pub fn push(&mut self, sample: f64) -> Result<(), FilterError> {
+        if N == 0 {
+            return Err(FilterError::CapacityExceeded);
+        }
         if !sample.is_valid_float() {
             return Err(FilterError::NonFiniteInput);
         }

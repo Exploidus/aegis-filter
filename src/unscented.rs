@@ -267,6 +267,15 @@ impl UnscentedKalmanFilter2D {
             self.p[1][1] = 1e-15;
         }
 
+        // Cauchy-Schwarz covariance bound: |P_01| <= (1 - 1e-12) * sqrt(P_00 * P_11)
+        // Mathematically guarantees det(P) > 0, preventing Cholesky failure in the next cycle.
+        let max_cov = (self.p[0][0] * self.p[1][1]).sqrt_val() * (1.0 - 1e-12);
+        if self.p[0][1].abs_val() > max_cov {
+            let sign = if self.p[0][1] >= 0.0 { 1.0 } else { -1.0 };
+            self.p[0][1] = sign * max_cov;
+            self.p[1][0] = sign * max_cov;
+        }
+
         Ok(self.x)
     }
 }
