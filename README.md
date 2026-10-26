@@ -64,16 +64,16 @@ aegis-filter = { version = "0.3.1", features = ["serde"] }
 use aegis_filter::{ScalarKalmanFilter, FilterError};
 
 fn main() -> Result<(), FilterError> {
-    // Initial state: 20.0, Initial variance: 5.0, Process noise (Q): 0.01, Measurement noise (R): 0.5
-    let mut filter = ScalarKalmanFilter::new(20.0, 5.0, 0.01, 0.5)?;
+    // Fail-closed initialization with default 3-sigma innovation gating enabled:
+    let mut filter = ScalarKalmanFilter::new_resilient(20.0, 5.0, 0.01, 0.5)?;
 
     let sensor_stream = [20.2, 20.4, 20.1, 999.0 /* spoofed spike */, 20.3];
 
     for &reading in &sensor_stream {
         filter.predict(0.0)?;
 
-        // Update with 3-sigma outlier rejection threshold
-        match filter.update(reading, Some(3.0)) {
+        // Update with default fail-closed gating (spikes are rejected automatically)
+        match filter.update(reading, None) {
             Ok(estimated_state) => {
                 println!("Valid state estimate: {:.3}", estimated_state);
             }

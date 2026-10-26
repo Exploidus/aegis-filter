@@ -20,6 +20,7 @@ pub struct ScalarKalmanFilter {
     p: f64,
     q: f64,
     r: f64,
+    default_gate: Option<f64>,
 }
 
 impl ScalarKalmanFilter {
@@ -47,7 +48,37 @@ impl ScalarKalmanFilter {
             p: initial_variance,
             q: process_noise,
             r: measurement_noise,
+            default_gate: None,
         })
+    }
+
+    /// Creates a fail-closed, cyber-resilient filter with default 3-sigma innovation gating enabled.
+    pub fn new_resilient(
+        initial_state: f64,
+        initial_variance: f64,
+        process_noise: f64,
+        measurement_noise: f64,
+    ) -> Result<Self, FilterError> {
+        let mut filter = Self::new(initial_state, initial_variance, process_noise, measurement_noise)?;
+        filter.default_gate = Some(crate::DEFAULT_OUTLIER_GATE_SIGMA);
+        Ok(filter)
+    }
+
+    /// Sets or overrides the persistent default gating threshold.
+    ///
+    /// When configured, calls to [`Self::update`] with `None` will enforce this gate (fail-closed).
+    pub fn with_default_gate(mut self, threshold_sigma: f64) -> Result<Self, FilterError> {
+        if !threshold_sigma.is_finite() || threshold_sigma <= 0.0 {
+            return Err(FilterError::InvalidParameter);
+        }
+        self.default_gate = Some(threshold_sigma);
+        Ok(self)
+    }
+
+    /// Disables default innovation gating, returning to unconstrained (fail-open) mode.
+    pub fn disable_default_gate(mut self) -> Self {
+        self.default_gate = None;
+        self
     }
 
     pub fn predict(&mut self, control_input: f64) -> Result<(), FilterError> {
@@ -68,10 +99,11 @@ impl ScalarKalmanFilter {
     /// Fuses an incoming scalar measurement with optional innovation outlier gating.
     ///
     /// # Gating Semantics
-    /// - `Some(sigma)`: Rejects measurements whose normalized innovation $|y| / \sqrt{S} > \sigma$
-    ///   with [`FilterError::MeasurementGated`], leaving state and covariance unmodified.
-    ///   Use [`crate::DEFAULT_OUTLIER_GATE_SIGMA`] (3.0) for standard 3-sigma protection.
-    /// - `None` or `Some(<= 0.0)`: Outlier gating is bypassed (fail-open mode).
+    /// - `Some(sigma)`: Overrides gating for this call: rejects measurements whose normalized
+    ///   innovation $|y| / \sqrt{S} > \sigma$ with [`FilterError::MeasurementGated`].
+    /// - `Some(<= 0.0)`: Explicitly bypasses outlier gating for this update.
+    /// - `None`: Falls back to the filter's persistent default gate ([`Self::with_default_gate`] or
+    ///   [`Self::new_resilient`]). If no default was configured, gating is bypassed.
     pub fn update(
         &mut self,
         measurement: f64,
@@ -87,12 +119,16 @@ impl ScalarKalmanFilter {
             return Err(FilterError::SingularInnovation);
         }
 
-        if let Some(gate_sigma) = gate_threshold_sigma {
-            if gate_sigma > 0.0 {
-                let normalized_residual = y.abs_val() / s.sqrt_val();
-                if normalized_residual > gate_sigma {
-                    return Err(FilterError::MeasurementGated);
-                }
+        let effective_gate = match gate_threshold_sigma {
+            Some(sigma) if sigma <= 0.0 => None,
+            Some(sigma) => Some(sigma),
+            None => self.default_gate,
+        };
+
+        if let Some(gate_sigma) = effective_gate {
+            let normalized_residual = y.abs_val() / s.sqrt_val();
+            if normalized_residual > gate_sigma {
+                return Err(FilterError::MeasurementGated);
             }
         }
 
@@ -130,6 +166,7 @@ pub struct LinearKalmanFilter<const S: usize, const M: usize> {
     pub q: [[f64; S]; S],
     pub h: [[f64; S]; M],
     pub r: [[f64; M]; M],
+    pub default_gate: Option<f64>,
 }
 
 impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
@@ -176,7 +213,39 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             q,
             h,
             r,
+            default_gate: None,
         })
+    }
+
+    /// Creates a fail-closed, cyber-resilient filter with default 3-sigma Mahalanobis gating enabled.
+    pub fn new_resilient(
+        initial_x: [f64; S],
+        initial_p: [[f64; S]; S],
+        f: [[f64; S]; S],
+        q: [[f64; S]; S],
+        h: [[f64; S]; M],
+        r: [[f64; M]; M],
+    ) -> Result<Self, FilterError> {
+        let mut filter = Self::new(initial_x, initial_p, f, q, h, r)?;
+        filter.default_gate = Some(crate::DEFAULT_OUTLIER_GATE_SIGMA);
+        Ok(filter)
+    }
+
+    /// Sets or overrides the persistent default gating threshold.
+    ///
+    /// When configured, calls to [`Self::update`] with `None` will enforce this gate (fail-closed).
+    pub fn with_default_gate(mut self, threshold_sigma: f64) -> Result<Self, FilterError> {
+        if !threshold_sigma.is_finite() || threshold_sigma <= 0.0 {
+            return Err(FilterError::InvalidParameter);
+        }
+        self.default_gate = Some(threshold_sigma);
+        Ok(self)
+    }
+
+    /// Disables default Mahalanobis gating, returning to unconstrained (fail-open) mode.
+    pub fn disable_default_gate(mut self) -> Self {
+        self.default_gate = None;
+        self
     }
 
     fn validate_matrix<const R: usize, const C: usize>(
@@ -355,19 +424,23 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
 
         // Gating: Mahalanobis distance sqrt(y^T S^-1 y). For M = 1 this is |y|/sqrt(S),
         // identical to the 1D gate.
-        if let Some(gate_sigma) = gate_threshold_sigma {
-            if gate_sigma > 0.0 {
-                let mut stat = 0.0;
-                for j in 0..M {
-                    for k in 0..M {
-                        stat += y[j] * s_inv[j][k] * y[k];
-                    }
+        let effective_gate = match gate_threshold_sigma {
+            Some(sigma) if sigma <= 0.0 => None,
+            Some(sigma) => Some(sigma),
+            None => self.default_gate,
+        };
+
+        if let Some(gate_sigma) = effective_gate {
+            let mut stat = 0.0;
+            for j in 0..M {
+                for k in 0..M {
+                    stat += y[j] * s_inv[j][k] * y[k];
                 }
-                // stat is theoretically >= 0; guard round-off that could dip below zero.
-                let mahal = stat.max(0.0).sqrt_val();
-                if mahal > gate_sigma {
-                    return Err(FilterError::MeasurementGated);
-                }
+            }
+            // stat is theoretically >= 0; guard round-off that could dip below zero.
+            let mahal = stat.max(0.0).sqrt_val();
+            if mahal > gate_sigma {
+                return Err(FilterError::MeasurementGated);
             }
         }
 
@@ -772,5 +845,27 @@ mod tests {
                 "Variance did not contract on measurement update"
             );
         }
+    }
+
+    // (10) Fail-closed security validation: when initialized with new_resilient or with_default_gate,
+    // calls to update(..., None) automatically enforce 3-sigma innovation gating.
+    #[test]
+    fn test_fail_closed_gating_behavior() {
+        let mut f_scalar = ScalarKalmanFilter::new_resilient(0.0, 1.0, 0.01, 0.5).unwrap();
+        // 1000-sigma outlier passed with None: MUST be rejected by default 3-sigma gate!
+        let err = f_scalar.update(1000.0, None);
+        assert_eq!(err, Err(FilterError::MeasurementGated));
+        assert!((f_scalar.state() - 0.0).abs() < 1e-12);
+
+        // Explicit opt-out via Some(-1.0) allows through
+        let accepted = f_scalar.update(1.0, Some(-1.0)).unwrap();
+        assert!(accepted > 0.0);
+
+        // Same for LinearKalmanFilter
+        let mut f_linear = LinearKalmanFilter::<1, 1>::new_resilient(
+            [0.0], [[1.0]], [[1.0]], [[0.01]], [[1.0]], [[0.5]]
+        ).unwrap();
+        let err_linear = f_linear.update(&[1000.0], None);
+        assert_eq!(err_linear, Err(FilterError::MeasurementGated));
     }
 }

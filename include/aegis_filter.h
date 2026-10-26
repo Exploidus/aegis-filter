@@ -45,6 +45,10 @@ typedef enum {
     AEGIS_FUSION_UNREGISTERED = 5       /**< Unknown sensor ID */
 } AegisFusionStatusCode;
 
+/* Sentinel constants for outlier gating */
+#define AEGIS_DEFAULT_GATE_SIGMA 3.0
+#define AEGIS_GATE_DISABLE       (-1.0)
+
 /* Forward-declared opaque handles */
 typedef struct AegisScalarFilter AegisScalarFilter;
 typedef struct AegisHInfFilter AegisHInfFilter;
@@ -73,6 +77,18 @@ AegisStatusCode aegis_scalar_filter_init(
 );
 
 /**
+ * @brief Sets persistent default outlier gating threshold (fail-closed posture).
+ *
+ * @param filter Pointer to filter.
+ * @param gate_threshold_sigma Positive sigma threshold (e.g. 3.0), or <= 0.0 to disable.
+ * @return AEGIS_OK on success, or error code.
+ */
+AegisStatusCode aegis_scalar_filter_set_default_gate(
+    AegisScalarFilter* filter,
+    double gate_threshold_sigma
+);
+
+/**
  * @brief Propagates filter state forward in time: x = x + u, P = P + Q.
  */
 AegisStatusCode aegis_scalar_filter_predict(
@@ -85,7 +101,8 @@ AegisStatusCode aegis_scalar_filter_predict(
  *
  * @param filter Pointer to filter.
  * @param measurement Raw incoming sensor observation (z).
- * @param gate_threshold_sigma Gating threshold in sigmas (e.g. 3.0, or <= 0 to disable).
+ * @param gate_threshold_sigma Gating threshold in sigmas (e.g. 3.0). Pass 0.0 to use the filter's
+ *                             persistent default gate, or AEGIS_GATE_DISABLE (-1.0) to explicitly bypass.
  * @param out_state Optional pointer to receive updated state.
  * @return AEGIS_OK on success, AEGIS_ERR_MEASUREMENT_GATED if rejected.
  */

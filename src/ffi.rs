@@ -135,13 +135,42 @@ pub unsafe extern "C" fn aegis_scalar_filter_predict(
 /// Default recommended 3-sigma innovation gating threshold for adversarial outlier rejection.
 pub const AEGIS_DEFAULT_GATE_SIGMA: f64 = 3.0;
 
+/// Sentinel value to explicitly disable innovation gating in C API calls.
+pub const AEGIS_GATE_DISABLE: f64 = -1.0;
+
+/// Configures persistent default outlier gating threshold on the scalar filter (fail-closed posture).
+///
+/// Pass a positive sigma threshold (e.g. `AEGIS_DEFAULT_GATE_SIGMA = 3.0`) to enforce gating.
+/// Pass `AEGIS_GATE_DISABLE` (-1.0) or `0.0` to disable default gating.
+#[no_mangle]
+pub unsafe extern "C" fn aegis_scalar_filter_set_default_gate(
+    filter: *mut AegisScalarFilter,
+    gate_threshold_sigma: f64,
+) -> AegisStatusCode {
+    if filter.is_null() {
+        return AegisStatusCode::NullPointer;
+    }
+    if gate_threshold_sigma > 0.0 {
+        match (*filter).inner.with_default_gate(gate_threshold_sigma) {
+            Ok(f) => {
+                (*filter).inner = f;
+                AegisStatusCode::Ok
+            }
+            Err(e) => e.into(),
+        }
+    } else {
+        (*filter).inner = (*filter).inner.disable_default_gate();
+        AegisStatusCode::Ok
+    }
+}
+
 /// Fuses incoming measurement with optional Mahalanobis 3-sigma innovation gating.
 ///
 /// # Security & Gating Semantics
-/// - Passing a positive `gate_threshold_sigma` (e.g. `AEGIS_DEFAULT_GATE_SIGMA = 3.0`) enables
-///   adversarial innovation gating. Outliers exceeding this threshold are rejected with
-///   status code [`AegisStatusCode::MeasurementGated`] (-4) and the filter state is left untouched.
-/// - Passing `0.0` or a negative value explicitly disables innovation gating (fail-open mode).
+/// - Passing a positive `gate_threshold_sigma` (e.g. `AEGIS_DEFAULT_GATE_SIGMA = 3.0`) enforces
+///   outlier gating for this call. Outliers are rejected with [`AegisStatusCode::MeasurementGated`] (-4).
+/// - Passing `AEGIS_GATE_DISABLE` (< 0.0) explicitly bypasses innovation gating for this update.
+/// - Passing `0.0` falls back to the filter's configured default gate ([`aegis_scalar_filter_set_default_gate`]).
 #[no_mangle]
 pub unsafe extern "C" fn aegis_scalar_filter_update(
     filter: *mut AegisScalarFilter,
@@ -155,6 +184,8 @@ pub unsafe extern "C" fn aegis_scalar_filter_update(
 
     let gate_opt = if gate_threshold_sigma > 0.0 {
         Some(gate_threshold_sigma)
+    } else if gate_threshold_sigma < 0.0 {
+        Some(-1.0)
     } else {
         None
     };
@@ -452,6 +483,16 @@ mod tests {
             // Rejection of adversary spike
             let status = aegis_scalar_filter_update(&mut filter, 9999.0, 3.0, &mut out);
             assert_eq!(status, AegisStatusCode::MeasurementGated);
+
+            // Test fail-closed default gate configuration
+            let status = aegis_scalar_filter_set_default_gate(&mut filter, 3.0);
+            assert_eq!(status, AegisStatusCode::Ok);
+            // Passing 0.0 falls back to configured 3.0 default gate -> rejects spike
+            let status = aegis_scalar_filter_update(&mut filter, 9999.0, 0.0, &mut out);
+            assert_eq!(status, AegisStatusCode::MeasurementGated);
+            // Passing explicit AEGIS_GATE_DISABLE (-1.0) allows through
+            let status = aegis_scalar_filter_update(&mut filter, 1.05, AEGIS_GATE_DISABLE, &mut out);
+            assert_eq!(status, AegisStatusCode::Ok);
         }
     }
 
