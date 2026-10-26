@@ -12,7 +12,7 @@ categories = ["algorithms", "embedded", "no-std", "science::robotics"]
 
 [lib]
 name = "aegis_filter"
-crate-type = ["lib", "staticlib"]
+crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
