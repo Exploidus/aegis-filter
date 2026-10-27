@@ -106,6 +106,9 @@ cargo run --example benchmark --release
 
 # 4. Multi-Sensor Fusion & Automated FDIR (GPS spoof quarantine & Baro/LiDAR handover)
 cargo run --example sensor_fault_fdir
+
+# 5. Drone Altitude Hold & Barometric Sensor Fusion (gust dynamics & static port glitch gating)
+cargo run --example drone_altitude_fusion
 ```
 
 ---
