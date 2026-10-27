@@ -17,6 +17,13 @@ crate-type = ["lib", "staticlib", "cdylib"]
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false }
+
+[[bench]]
+name = "filter_throughput"
+harness = false
+
 [features]
 default = ["std", "ffi"]
 std = []
