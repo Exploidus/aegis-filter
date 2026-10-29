@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn test_eskf_position_update_and_outlier_gating() {
         let init_state = EskfNominalState::new(
-            Vector3::ZERO,
+            Vector3::new(10.0, 5.0, -2.0),
             Vector3::ZERO,
             Quaternion::IDENTITY,
             Vector3::ZERO,
@@ -588,12 +588,12 @@ mod tests {
         )
         .unwrap();
 
-        // GNSS position update
-        let gnss_pos = Vector3::new(10.0, 5.0, -2.0);
+        // Legitimate GNSS position observation (sub-meter drift)
+        let gnss_pos = Vector3::new(10.2, 5.1, -1.9);
         eskf.update_position(&gnss_pos, 0.25, None).unwrap();
 
-        assert!((eskf.state().position.x - 10.0).abs() < 2.0);
-        assert!((eskf.state().position.y - 5.0).abs() < 2.0);
+        assert!((eskf.state().position.x - 10.2).abs() < 0.2);
+        assert!((eskf.state().position.y - 5.1).abs() < 0.2);
 
         // Adversarial GNSS spoofing / multipath spike (10,000 meters away)
         let spoofed_pos = Vector3::new(10000.0, 0.0, 0.0);
