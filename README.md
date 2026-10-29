@@ -28,6 +28,7 @@ Developed under **[Exploidus](https://github.com/Exploidus)**.
 5. **`HInfinityFilter1D`**: Minimax bounded worst-case disturbance filter for unmodeled dynamics.
 6. **`AdaptiveFilter1D`**: Online covariance estimation adapting to non-stationary sensor noise.
 7. **`WindowedStats<CAPACITY>`**: Zero-allocation sliding-window statistical analyzer computing rolling mean, variance, standard deviation, and peak-to-peak spread over fixed const-generic buffers.
+8. **`ErrorStateKalmanFilter`**: 15-state Error-State Kalman Filter (ESKF/MEKF) tracking 3D position, velocity, unit quaternion attitude, and IMU accelerometer/gyroscope bias drift with Mahalanobis-gated GNSS and magnetometer updates.
 
 ---
 

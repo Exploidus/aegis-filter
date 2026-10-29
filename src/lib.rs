@@ -25,6 +25,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 }
 
 pub mod common;
+pub mod eskf;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 pub mod fusion;
@@ -34,6 +35,10 @@ pub mod stats;
 pub mod unscented;
 
 pub use common::{FilterError, DEFAULT_OUTLIER_GATE_SIGMA};
+pub use eskf::{
+    ErrorStateKalmanFilter, EskfNoiseParameters, EskfNominalState, Quaternion, Vector3,
+    EARTH_GRAVITY_Z_UP,
+};
 pub use fusion::{FusionStatus, MultiSensorFusion1D, SensorMeasurement, SensorSource};
 pub use linear::{LinearKalmanFilter, ScalarKalmanFilter};
 pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};
@@ -528,5 +533,71 @@ mod tests {
             let _ = hinf.update(val);
             let _ = af.update(val);
         }
+    }
+
+    #[test]
+    fn test_eskf_stationary_kinematics() {
+        let init_state = EskfNominalState::new(
+            Vector3::new(0.0, 0.0, 100.0),
+            Vector3::ZERO,
+            Quaternion::IDENTITY,
+            Vector3::ZERO,
+            Vector3::ZERO,
+        );
+        let cov_diag = [0.1; 15];
+        let noise = EskfNoiseParameters::new(0.01, 0.001, 0.0001, 0.00001);
+        let mut eskf = ErrorStateKalmanFilter::new(
+            init_state,
+            cov_diag,
+            noise,
+            Vector3::new(0.0, 0.0, -9.80665),
+        )
+        .unwrap();
+
+        // Stationary IMU on Earth surface: accelerometer reads +1g upward reaction
+        let accel = Vector3::new(0.0, 0.0, 9.80665);
+        let gyro = Vector3::ZERO;
+        let dt = 0.01;
+
+        for _ in 0..100 {
+            eskf.predict(&accel, &gyro, dt).unwrap();
+        }
+
+        // Stationary drone should remain at altitude 100m
+        assert!((eskf.state().position.z - 100.0).abs() < 1e-4);
+        assert!(eskf.state().velocity.norm() < 1e-4);
+        assert!((eskf.state().attitude.w - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_eskf_position_update_and_outlier_gating() {
+        let init_state = EskfNominalState::new(
+            Vector3::ZERO,
+            Vector3::ZERO,
+            Quaternion::IDENTITY,
+            Vector3::ZERO,
+            Vector3::ZERO,
+        );
+        let cov_diag = [1.0; 15];
+        let noise = EskfNoiseParameters::new(0.05, 0.005, 0.0001, 0.00001);
+        let mut eskf = ErrorStateKalmanFilter::new(
+            init_state,
+            cov_diag,
+            noise,
+            Vector3::new(0.0, 0.0, -9.80665),
+        )
+        .unwrap();
+
+        // GNSS position update
+        let gnss_pos = Vector3::new(10.0, 5.0, -2.0);
+        eskf.update_position(&gnss_pos, 0.25, None).unwrap();
+
+        assert!((eskf.state().position.x - 10.0).abs() < 2.0);
+        assert!((eskf.state().position.y - 5.0).abs() < 2.0);
+
+        // Adversarial GNSS spoofing / multipath spike (10,000 meters away)
+        let spoofed_pos = Vector3::new(10000.0, 0.0, 0.0);
+        let err = eskf.update_position(&spoofed_pos, 0.25, Some(3.0));
+        assert_eq!(err, Err(FilterError::MeasurementGated));
     }
 }
