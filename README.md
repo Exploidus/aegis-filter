@@ -110,6 +110,9 @@ cargo run --example sensor_fault_fdir
 
 # 5. Drone Altitude Hold & Barometric Sensor Fusion (gust dynamics & static port glitch gating)
 cargo run --example drone_altitude_fusion
+
+# 6. Lithium-ion Battery State of Charge Estimation (UKF with 1st-order Thevenin RC & spike rejection)
+cargo run --example battery_soc_estimation
 ```
 
 ---
