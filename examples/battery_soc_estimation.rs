@@ -1,4 +1,4 @@
-﻿//! Lithium-ion Battery State of Charge (SOC) Estimation Simulation.
+//! Lithium-ion Battery State of Charge (SOC) Estimation Simulation.
 //!
 //! Demonstrates the Unscented Kalman Filter (UKF) performing real-time, online
 //! joint estimation of a battery cell's State of Charge (SOC) and polarization voltage
@@ -27,11 +27,11 @@ use aegis_filter::{FilterError, UnscentedKalmanFilter2D};
 /// 18650 NMC Lithium-Ion Cell Electrical Parameters
 const CAPACITY_AH: f64 = 2.5;
 const CAPACITY_AS: f64 = CAPACITY_AH * 3600.0; // 9,000 Ampere-seconds
-const R0_OHMS: f64 = 0.035;                   // Internal ohmic resistance (35 mOhm)
-const R1_OHMS: f64 = 0.025;                   // Polarization transfer resistance (25 mOhm)
-const C1_FARADS: f64 = 1200.0;                // Double-layer polarization capacitance (1200 F)
+const R0_OHMS: f64 = 0.035; // Internal ohmic resistance (35 mOhm)
+const R1_OHMS: f64 = 0.025; // Polarization transfer resistance (25 mOhm)
+const C1_FARADS: f64 = 1200.0; // Double-layer polarization capacitance (1200 F)
 const TAU_SECONDS: f64 = R1_OHMS * C1_FARADS; // Diffusion time constant = 30.0 s
-const DT_SECONDS: f64 = 0.1;                  // Sample interval = 100 ms
+const DT_SECONDS: f64 = 0.1; // Sample interval = 100 ms
 
 /// Non-linear Open Circuit Voltage (OCV) empirical curve for 18650 NMC cell.
 /// Maps SOC [0.0, 1.0] to OCV [3.0V, 4.2V].
@@ -49,7 +49,9 @@ fn main() {
 
     println!("Battery Cell Specification & Operational Scenario:");
     println!("- Chemistry: Cylindrical NMC 18650 (2.5 Ah / 9000 As nominal capacity)");
-    println!("- Equivalent Circuit: 1st-Order Thevenin Model (R0 = 35 mOhm, R1 = 25 mOhm, C1 = 1200 F)");
+    println!(
+        "- Equivalent Circuit: 1st-Order Thevenin Model (R0 = 35 mOhm, R1 = 25 mOhm, C1 = 1200 F)"
+    );
     println!("- Dynamic Load: Alternating acceleration pulse discharge (+5.0 A) & regen braking (-2.0 A)");
     println!("- Initial Estimation Offset: True SOC = 85.0%, Estimator starts biased at 50.0% (-35.0% error)");
     println!("- Voltage Sensor Noise: Gaussian standard deviation sigma = 15 mV");
@@ -59,12 +61,12 @@ fn main() {
     // State x = [SOC, V1]
     let initial_x = [0.50, 0.0]; // Biased estimate: 50% SOC, 0V polarization
     let initial_p = [
-        [0.05, 0.0],  // Initial variance for SOC: high uncertainty
-        [0.0, 0.01],  // Initial variance for V1
+        [0.05, 0.0], // Initial variance for SOC: high uncertainty
+        [0.0, 0.01], // Initial variance for V1
     ];
     let q = [
-        [1e-7, 0.0],  // Process noise variance for coulomb counting
-        [0.0, 1e-6],  // Process noise variance for polarization RC dynamics
+        [1e-7, 0.0], // Process noise variance for coulomb counting
+        [0.0, 1e-6], // Process noise variance for polarization RC dynamics
     ];
     let r_measurement_variance = 0.0004; // (20 mV)^2 measurement noise covariance
 
@@ -166,12 +168,23 @@ fn main() {
     println!("- Measurements accepted:   {}", accepted_count);
     println!("- Sensor glitches gated:   {}", rejected_count);
     println!("- Initial estimation error: 35.00%");
-    println!("- Final true SOC:          {:.4} ({:.2}%)", true_soc, true_soc * 100.0);
-    println!("- Final estimated SOC:     {:.4} ({:.2}%)", ukf.x[0], ukf.x[0] * 100.0);
+    println!(
+        "- Final true SOC:          {:.4} ({:.2}%)",
+        true_soc,
+        true_soc * 100.0
+    );
+    println!(
+        "- Final estimated SOC:     {:.4} ({:.2}%)",
+        ukf.x[0],
+        ukf.x[0] * 100.0
+    );
     println!("- Final residual error:    {:.3}%", final_error_percent);
 
     // Validation asserts:
-    assert_eq!(rejected_count, 1, "Expected exactly 1 sensor spike to be rejected by innovation gating");
+    assert_eq!(
+        rejected_count, 1,
+        "Expected exactly 1 sensor spike to be rejected by innovation gating"
+    );
     assert!(
         final_error_percent < 1.0,
         "UKF failed to converge within 1.0% SOC error! Final error: {:.3}%",
