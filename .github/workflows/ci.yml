@@ -27,11 +27,14 @@ jobs:
       - name: Check code formatting
         run: cargo fmt -- --check
 
-      - name: Run Clippy Linter
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run Clippy Linter (Standard f64)
+        run: cargo clippy --all-targets --features std,serde,ffi -- -D warnings
+
+      - name: Run Clippy Linter (Single-Precision f32)
+        run: cargo clippy --lib --features single-precision,ffi -- -D warnings
 
       - name: Run Test Suite (Standard Library)
-        run: cargo test --all-features --verbose
+        run: cargo test --features std,serde,ffi --verbose
 
       - name: Verify Pure #![no_std] Core Compilation (Bare-Metal target)
         run: cargo check --no-default-features --target thumbv7em-none-eabihf
