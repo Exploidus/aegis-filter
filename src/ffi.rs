@@ -228,7 +228,9 @@ pub unsafe extern "C" fn aegis_scalar_filter_get_state(filter: *const AegisScala
 /// # Safety
 /// Caller must ensure `filter` points to a valid `AegisScalarFilter` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_scalar_filter_get_variance(filter: *const AegisScalarFilter) -> Real {
+pub unsafe extern "C" fn aegis_scalar_filter_get_variance(
+    filter: *const AegisScalarFilter,
+) -> Real {
     if filter.is_null() {
         return Real::NAN;
     }
@@ -500,7 +502,10 @@ pub unsafe extern "C" fn aegis_fusion4_get_sensor_health(
     if fusion.is_null() {
         return Real::NAN;
     }
-    (*fusion).inner.sensor_health(sensor_id).unwrap_or(Real::NAN)
+    (*fusion)
+        .inner
+        .sensor_health(sensor_id)
+        .unwrap_or(Real::NAN)
 }
 
 #[cfg(test)]
