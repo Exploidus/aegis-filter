@@ -46,5 +46,5 @@ jobs:
         run: cargo build --release --no-default-features --features single-precision --target thumbv7em-none-eabihf
 
       - name: Run Test Suite (Single-Precision Mode)
-        run: cargo test --lib --doc --features single-precision --verbose
+        run: cargo test --lib --features single-precision --verbose
 
