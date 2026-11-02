@@ -5,7 +5,7 @@
 //!
 //! Formulated for `#![no_std]` execution without heap allocations using compile-time const generics.
 
-use crate::common::{FilterError, FloatOps};
+use crate::common::{FilterError, FloatOps, Real};
 
 /// 2-State / 1-Measurement Unscented Kalman Filter.
 ///
@@ -30,30 +30,30 @@ use crate::common::{FilterError, FloatOps};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnscentedKalmanFilter2D {
     /// State mean `[x0, x1]`
-    pub x: [f64; 2],
+    pub x: [Real; 2],
     /// State covariance `[2x2]`
-    pub p: [[f64; 2]; 2],
+    pub p: [[Real; 2]; 2],
     /// Process noise covariance `[2x2]`
-    pub q: [[f64; 2]; 2],
+    pub q: [[Real; 2]; 2],
     /// Measurement noise variance (R)
-    pub r: f64,
+    pub r: Real,
 
     // Merwe scaled unscented transform parameters:
-    alpha: f64,
-    beta: f64,
-    kappa: f64,
+    alpha: Real,
+    beta: Real,
+    kappa: Real,
 }
 
 /// Sigma points container: (weights_mean, weights_cov, points)
-pub type SigmaPoints2D = ([f64; 5], [f64; 5], [[f64; 2]; 5]);
+pub type SigmaPoints2D = ([Real; 5], [Real; 5], [[Real; 2]; 5]);
 
 impl UnscentedKalmanFilter2D {
     /// Initializes a new 2D Unscented Kalman Filter.
     pub fn new(
-        initial_x: [f64; 2],
-        initial_p: [[f64; 2]; 2],
-        q: [[f64; 2]; 2],
-        r: f64,
+        initial_x: [Real; 2],
+        initial_p: [[Real; 2]; 2],
+        q: [[Real; 2]; 2],
+        r: Real,
     ) -> Result<Self, FilterError> {
         if !initial_x[0].is_finite()
             || !initial_x[1].is_finite()
@@ -126,9 +126,9 @@ impl UnscentedKalmanFilter2D {
     }
 
     /// Predicts the state forward through an arbitrary non-linear dynamic transition function `f(x, dt)`.
-    pub fn predict<F>(&mut self, dt: f64, mut transition_fn: F) -> Result<(), FilterError>
+    pub fn predict<F>(&mut self, dt: Real, mut transition_fn: F) -> Result<(), FilterError>
     where
-        F: FnMut([f64; 2], f64) -> [f64; 2],
+        F: FnMut([Real; 2], Real) -> [Real; 2],
     {
         let (wm, wc, sigma_points) = self.generate_sigma_points()?;
 
@@ -180,12 +180,12 @@ impl UnscentedKalmanFilter2D {
     /// Measurement update through an arbitrary non-linear observation function `h(x) -> scalar`.
     pub fn update<H>(
         &mut self,
-        measurement: f64,
+        measurement: Real,
         mut observe_fn: H,
-        gate_sigma: Option<f64>,
-    ) -> Result<[f64; 2], FilterError>
+        gate_sigma: Option<Real>,
+    ) -> Result<[Real; 2], FilterError>
     where
-        H: FnMut([f64; 2]) -> f64,
+        H: FnMut([Real; 2]) -> Real,
     {
         if !measurement.is_finite() {
             return Err(FilterError::NonFiniteInput);

@@ -39,3 +39,9 @@ jobs:
       - name: Verify Bare-Metal Release Build & Hardening (panic=abort)
         run: cargo build --release --no-default-features --target thumbv7em-none-eabihf
 
+      - name: Verify Cortex-M Single-Precision FPU Target (#![no_std] f32 build)
+        run: cargo build --release --no-default-features --features single-precision --target thumbv7em-none-eabihf
+
+      - name: Run Test Suite (Single-Precision Mode)
+        run: cargo test --features single-precision --verbose
+

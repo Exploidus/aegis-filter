@@ -14,6 +14,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/**
+ * @brief Configurable floating-point precision type.
+ *
+ * Defaults to aegis_real (f64). Define AEGIS_SINGLE_PRECISION or compile with
+ * the `single-precision` feature to switch to float (f32) for ARM Cortex-M
+ * single-precision FPUs.
+ */
+#if defined(AEGIS_SINGLE_PRECISION)
+typedef float aegis_real;
+#define AEGIS_DEFAULT_GATE_SIGMA 3.0f
+#define AEGIS_GATE_DISABLE       (-1.0f)
+#else
+typedef aegis_real aegis_real;
+#define AEGIS_DEFAULT_GATE_SIGMA 3.0
+#define AEGIS_GATE_DISABLE       (-1.0)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -45,9 +62,7 @@ typedef enum {
     AEGIS_FUSION_UNREGISTERED = 5       /**< Unknown sensor ID */
 } AegisFusionStatusCode;
 
-/* Sentinel constants for outlier gating */
-#define AEGIS_DEFAULT_GATE_SIGMA 3.0
-#define AEGIS_GATE_DISABLE       (-1.0)
+/* Sentinel constants defined above with aegis_real */
 
 /* Forward-declared opaque handles */
 typedef struct AegisScalarFilter AegisScalarFilter;
@@ -70,10 +85,10 @@ typedef struct AegisFusion4 AegisFusion4;
  */
 AegisStatusCode aegis_scalar_filter_init(
     AegisScalarFilter* filter,
-    double initial_state,
-    double initial_variance,
-    double process_noise_q,
-    double measurement_noise_r
+    aegis_real initial_state,
+    aegis_real initial_variance,
+    aegis_real process_noise_q,
+    aegis_real measurement_noise_r
 );
 
 /**
@@ -85,7 +100,7 @@ AegisStatusCode aegis_scalar_filter_init(
  */
 AegisStatusCode aegis_scalar_filter_set_default_gate(
     AegisScalarFilter* filter,
-    double gate_threshold_sigma
+    aegis_real gate_threshold_sigma
 );
 
 /**
@@ -93,7 +108,7 @@ AegisStatusCode aegis_scalar_filter_set_default_gate(
  */
 AegisStatusCode aegis_scalar_filter_predict(
     AegisScalarFilter* filter,
-    double control_input
+    aegis_real control_input
 );
 
 /**
@@ -108,20 +123,20 @@ AegisStatusCode aegis_scalar_filter_predict(
  */
 AegisStatusCode aegis_scalar_filter_update(
     AegisScalarFilter* filter,
-    double measurement,
-    double gate_threshold_sigma,
-    double* out_state
+    aegis_real measurement,
+    aegis_real gate_threshold_sigma,
+    aegis_real* out_state
 );
 
 /**
  * @brief Retrieves current state mean.
  */
-double aegis_scalar_filter_get_state(const AegisScalarFilter* filter);
+aegis_real aegis_scalar_filter_get_state(const AegisScalarFilter* filter);
 
 /**
  * @brief Retrieves current error variance.
  */
-double aegis_scalar_filter_get_variance(const AegisScalarFilter* filter);
+aegis_real aegis_scalar_filter_get_variance(const AegisScalarFilter* filter);
 
 /* ========================================================================= */
 /* 2. H-INFINITY MINIMAX ROBUST FILTER (Bounded Disturbance)                  */
@@ -139,11 +154,11 @@ double aegis_scalar_filter_get_variance(const AegisScalarFilter* filter);
  */
 AegisStatusCode aegis_h_inf_filter_init(
     AegisHInfFilter* filter,
-    double initial_state,
-    double initial_variance,
-    double process_bound_q,
-    double measurement_bound_r,
-    double gamma
+    aegis_real initial_state,
+    aegis_real initial_variance,
+    aegis_real process_bound_q,
+    aegis_real measurement_bound_r,
+    aegis_real gamma
 );
 
 /**
@@ -151,7 +166,7 @@ AegisStatusCode aegis_h_inf_filter_init(
  */
 AegisStatusCode aegis_h_inf_filter_predict(
     AegisHInfFilter* filter,
-    double control_input
+    aegis_real control_input
 );
 
 /**
@@ -159,19 +174,19 @@ AegisStatusCode aegis_h_inf_filter_predict(
  */
 AegisStatusCode aegis_h_inf_filter_update(
     AegisHInfFilter* filter,
-    double measurement,
-    double* out_state
+    aegis_real measurement,
+    aegis_real* out_state
 );
 
 /**
  * @brief Retrieves current H-infinity state estimate.
  */
-double aegis_h_inf_filter_get_state(const AegisHInfFilter* filter);
+aegis_real aegis_h_inf_filter_get_state(const AegisHInfFilter* filter);
 
 /**
  * @brief Retrieves current error bound (P).
  */
-double aegis_h_inf_filter_get_bound(const AegisHInfFilter* filter);
+aegis_real aegis_h_inf_filter_get_bound(const AegisHInfFilter* filter);
 
 /* ========================================================================= */
 /* 3. MULTI-SENSOR FDIR FUSION ENGINE (4 Channels)                           */
@@ -182,9 +197,9 @@ double aegis_h_inf_filter_get_bound(const AegisHInfFilter* filter);
  */
 AegisStatusCode aegis_fusion4_init(
     AegisFusion4* fusion,
-    double x0,
-    double p0,
-    double q
+    aegis_real x0,
+    aegis_real p0,
+    aegis_real q
 );
 
 /**
@@ -200,9 +215,9 @@ AegisStatusCode aegis_fusion4_init(
 AegisStatusCode aegis_fusion4_register_sensor(
     AegisFusion4* fusion,
     uint8_t sensor_id,
-    double variance,
+    aegis_real variance,
     uint32_t max_consecutive_anomalies,
-    double gate_threshold_sigma,
+    aegis_real gate_threshold_sigma,
     uint32_t auto_recovery_threshold
 );
 
@@ -211,7 +226,7 @@ AegisStatusCode aegis_fusion4_register_sensor(
  */
 AegisStatusCode aegis_fusion4_predict(
     AegisFusion4* fusion,
-    double control_input
+    aegis_real control_input
 );
 
 /**
@@ -225,24 +240,24 @@ AegisStatusCode aegis_fusion4_predict(
 AegisStatusCode aegis_fusion4_fuse(
     AegisFusion4* fusion,
     uint8_t sensor_id,
-    double value,
+    aegis_real value,
     AegisFusionStatusCode* out_status
 );
 
 /**
  * @brief Retrieves fused state estimate.
  */
-double aegis_fusion4_get_state(const AegisFusion4* fusion);
+aegis_real aegis_fusion4_get_state(const AegisFusion4* fusion);
 
 /**
  * @brief Retrieves fused error covariance.
  */
-double aegis_fusion4_get_variance(const AegisFusion4* fusion);
+aegis_real aegis_fusion4_get_variance(const AegisFusion4* fusion);
 
 /**
  * @brief Retrieves real-time health score of a sensor (1.0 = nominal, 0.0 = quarantined).
  */
-double aegis_fusion4_get_sensor_health(const AegisFusion4* fusion, uint8_t sensor_id);
+aegis_real aegis_fusion4_get_sensor_health(const AegisFusion4* fusion, uint8_t sensor_id);
 
 #ifdef __cplusplus
 }

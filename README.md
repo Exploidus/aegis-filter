@@ -55,6 +55,13 @@ With optional `serde` support for state persistence and telemetry serialization:
 aegis-filter = { version = "0.4.0", features = ["serde"] }
 ```
 
+For **ARM Cortex-M4 / Cortex-M33** and single-precision hardware FPUs, enable `single-precision` to compile state representations, covariances, and math routines as `f32`:
+
+```toml
+[dependencies]
+aegis-filter = { version = "0.4.0", default-features = false, features = ["single-precision"] }
+```
+
 ---
 
 ## Example Usage

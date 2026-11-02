@@ -29,6 +29,7 @@ default = ["std", "ffi"]
 std = []
 serde = ["dep:serde"]
 ffi = []
+single-precision = []
 
 [profile.dev]
 panic = "abort"

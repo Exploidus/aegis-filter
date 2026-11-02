@@ -1,6 +1,6 @@
 //! Classical Linear & Kinematic Kalman Filters with Joseph stabilized covariance.
 
-use crate::common::{FilterError, FloatOps};
+use crate::common::{FilterError, FloatOps, Real};
 
 /// 1D Scalar Kalman Filter with Joseph-stabilized variance update.
 ///
@@ -16,20 +16,20 @@ use crate::common::{FilterError, FloatOps};
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ScalarKalmanFilter {
-    x: f64,
-    p: f64,
-    q: f64,
-    r: f64,
-    default_gate: Option<f64>,
+    x: Real,
+    p: Real,
+    q: Real,
+    r: Real,
+    default_gate: Option<Real>,
 }
 
 impl ScalarKalmanFilter {
     #[allow(clippy::needless_range_loop)]
     pub fn new(
-        initial_state: f64,
-        initial_variance: f64,
-        process_noise: f64,
-        measurement_noise: f64,
+        initial_state: Real,
+        initial_variance: Real,
+        process_noise: Real,
+        measurement_noise: Real,
     ) -> Result<Self, FilterError> {
         if !initial_state.is_finite()
             || !initial_variance.is_finite()
@@ -54,10 +54,10 @@ impl ScalarKalmanFilter {
 
     /// Creates a fail-closed, cyber-resilient filter with default 3-sigma innovation gating enabled.
     pub fn new_resilient(
-        initial_state: f64,
-        initial_variance: f64,
-        process_noise: f64,
-        measurement_noise: f64,
+        initial_state: Real,
+        initial_variance: Real,
+        process_noise: Real,
+        measurement_noise: Real,
     ) -> Result<Self, FilterError> {
         let mut filter = Self::new(
             initial_state,
@@ -72,7 +72,7 @@ impl ScalarKalmanFilter {
     /// Sets or overrides the persistent default gating threshold.
     ///
     /// When configured, calls to [`Self::update`] with `None` will enforce this gate (fail-closed).
-    pub fn with_default_gate(mut self, threshold_sigma: f64) -> Result<Self, FilterError> {
+    pub fn with_default_gate(mut self, threshold_sigma: Real) -> Result<Self, FilterError> {
         if !threshold_sigma.is_finite() || threshold_sigma <= 0.0 {
             return Err(FilterError::InvalidParameter);
         }
@@ -86,7 +86,7 @@ impl ScalarKalmanFilter {
         self
     }
 
-    pub fn predict(&mut self, control_input: f64) -> Result<(), FilterError> {
+    pub fn predict(&mut self, control_input: Real) -> Result<(), FilterError> {
         if !control_input.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -111,9 +111,9 @@ impl ScalarKalmanFilter {
     ///   [`Self::new_resilient`]). If no default was configured, gating is bypassed.
     pub fn update(
         &mut self,
-        measurement: f64,
-        gate_threshold_sigma: Option<f64>,
-    ) -> Result<f64, FilterError> {
+        measurement: Real,
+        gate_threshold_sigma: Option<Real>,
+    ) -> Result<Real, FilterError> {
         if !measurement.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -152,12 +152,12 @@ impl ScalarKalmanFilter {
     }
 
     #[inline(always)]
-    pub fn state(&self) -> f64 {
+    pub fn state(&self) -> Real {
         self.x
     }
 
     #[inline(always)]
-    pub fn variance(&self) -> f64 {
+    pub fn variance(&self) -> Real {
         self.p
     }
 }
@@ -165,24 +165,24 @@ impl ScalarKalmanFilter {
 /// Generic N-dimensional Linear Kalman Filter using const-generics.
 #[derive(Debug, Clone)]
 pub struct LinearKalmanFilter<const S: usize, const M: usize> {
-    pub x: [f64; S],
-    pub p: [[f64; S]; S],
-    pub f: [[f64; S]; S],
-    pub q: [[f64; S]; S],
-    pub h: [[f64; S]; M],
-    pub r: [[f64; M]; M],
-    pub default_gate: Option<f64>,
+    pub x: [Real; S],
+    pub p: [[Real; S]; S],
+    pub f: [[Real; S]; S],
+    pub q: [[Real; S]; S],
+    pub h: [[Real; S]; M],
+    pub r: [[Real; M]; M],
+    pub default_gate: Option<Real>,
 }
 
 impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     #[allow(clippy::needless_range_loop)]
     pub fn new(
-        initial_x: [f64; S],
-        initial_p: [[f64; S]; S],
-        f: [[f64; S]; S],
-        q: [[f64; S]; S],
-        h: [[f64; S]; M],
-        r: [[f64; M]; M],
+        initial_x: [Real; S],
+        initial_p: [[Real; S]; S],
+        f: [[Real; S]; S],
+        q: [[Real; S]; S],
+        h: [[Real; S]; M],
+        r: [[Real; M]; M],
     ) -> Result<Self, FilterError> {
         for val in initial_x.iter() {
             if !val.is_finite() {
@@ -224,12 +224,12 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
 
     /// Creates a fail-closed, cyber-resilient filter with default 3-sigma Mahalanobis gating enabled.
     pub fn new_resilient(
-        initial_x: [f64; S],
-        initial_p: [[f64; S]; S],
-        f: [[f64; S]; S],
-        q: [[f64; S]; S],
-        h: [[f64; S]; M],
-        r: [[f64; M]; M],
+        initial_x: [Real; S],
+        initial_p: [[Real; S]; S],
+        f: [[Real; S]; S],
+        q: [[Real; S]; S],
+        h: [[Real; S]; M],
+        r: [[Real; M]; M],
     ) -> Result<Self, FilterError> {
         let mut filter = Self::new(initial_x, initial_p, f, q, h, r)?;
         filter.default_gate = Some(crate::DEFAULT_OUTLIER_GATE_SIGMA);
@@ -239,7 +239,7 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     /// Sets or overrides the persistent default gating threshold.
     ///
     /// When configured, calls to [`Self::update`] with `None` will enforce this gate (fail-closed).
-    pub fn with_default_gate(mut self, threshold_sigma: f64) -> Result<Self, FilterError> {
+    pub fn with_default_gate(mut self, threshold_sigma: Real) -> Result<Self, FilterError> {
         if !threshold_sigma.is_finite() || threshold_sigma <= 0.0 {
             return Err(FilterError::InvalidParameter);
         }
@@ -254,7 +254,7 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     }
 
     fn validate_matrix<const R: usize, const C: usize>(
-        matrix: &[[f64; C]; R],
+        matrix: &[[Real; C]; R],
     ) -> Result<(), FilterError> {
         for row in matrix.iter() {
             for val in row.iter() {
@@ -363,9 +363,9 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     #[allow(clippy::needless_range_loop)] // manual index loops over const-generic buffers
     pub fn update(
         &mut self,
-        measurement: &[f64; M],
-        gate_threshold_sigma: Option<f64>,
-    ) -> Result<[f64; S], FilterError> {
+        measurement: &[Real; M],
+        gate_threshold_sigma: Option<Real>,
+    ) -> Result<[Real; S], FilterError> {
         // Boundary check: non-finite measurements are rejected, like the 1D path.
         for &val in measurement.iter() {
             if !val.is_finite() {
@@ -563,7 +563,7 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
     /// [`FilterError::NumericalInstability`] rather than divide by it. Threshold `1e-15`
     /// matches the singularity guard the 1D filter uses for its scalar innovation covariance.
     #[allow(clippy::needless_range_loop)] // index loops over const-generic buffers
-    fn invert_matrix<const N: usize>(m: &[[f64; N]; N]) -> Result<[[f64; N]; N], FilterError> {
+    fn invert_matrix<const N: usize>(m: &[[Real; N]; N]) -> Result<[[Real; N]; N], FilterError> {
         // Two N x N buffers instead of one 2*N augmented block: a generic const param may
         // not appear in const arithmetic (`2 * N`) under edition 2021. `mat` accumulates the
         // pivots so its left side becomes I; `inv` follows the identical row ops and so
@@ -762,11 +762,11 @@ mod tests {
             LinearKalmanFilter::<1, 1>::new([0.0], [[1.0]], [[1.0]], [[0.01]], [[1.0]], [[0.5]])
                 .unwrap();
         assert_eq!(
-            f.update(&[f64::NAN], None).err(),
+            f.update(&[Real::NAN], None).err(),
             Some(FilterError::NonFiniteInput)
         );
         assert_eq!(
-            f.update(&[f64::INFINITY], None).err(),
+            f.update(&[Real::INFINITY], None).err(),
             Some(FilterError::NonFiniteInput)
         );
     }
