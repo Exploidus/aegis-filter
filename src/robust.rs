@@ -15,7 +15,7 @@
 //! - Xiang Shen and Li Deng, "Game theory approach to discrete H-infinity filter design",
 //!   *IEEE Transactions on Signal Processing*, 45(4):1092-1095, 1997.
 
-use crate::common::{FilterError, FloatOps, Real};
+use crate::common::{FilterError, Real};
 
 /// 1D Robust $H_\infty$ (H-infinity) Minimax Filter.
 ///
