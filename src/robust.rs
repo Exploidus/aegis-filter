@@ -15,7 +15,7 @@
 //! - Xiang Shen and Li Deng, "Game theory approach to discrete H-infinity filter design",
 //!   *IEEE Transactions on Signal Processing*, 45(4):1092-1095, 1997.
 
-use crate::common::FilterError;
+use crate::common::{FilterError, Real};
 
 /// 1D Robust $H_\infty$ (H-infinity) Minimax Filter.
 ///
@@ -61,26 +61,26 @@ use crate::common::FilterError;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HInfinityFilter1D {
     /// State estimate ($x$)
-    x: f64,
+    x: Real,
     /// Covariance / error bound parameter ($P$)
-    p: f64,
+    p: Real,
     /// Process disturbance bound ($Q$)
-    q: f64,
+    q: Real,
     /// Measurement disturbance bound ($R$)
-    r: f64,
+    r: Real,
     /// Performance attenuation bound ($\gamma$). Smaller values enforce tighter worst-case error bounds.
-    gamma: f64,
+    gamma: Real,
 }
 
 impl HInfinityFilter1D {
     /// Creates a new $H_\infty$ filter.
     /// `gamma` must be strictly greater than 0 (typically $\ge 1.0$).
     pub fn new(
-        initial_state: f64,
-        initial_variance: f64,
-        process_bound_q: f64,
-        measurement_bound_r: f64,
-        gamma: f64,
+        initial_state: Real,
+        initial_variance: Real,
+        process_bound_q: Real,
+        measurement_bound_r: Real,
+        gamma: Real,
     ) -> Result<Self, FilterError> {
         if !initial_state.is_finite()
             || initial_variance <= 0.0
@@ -103,7 +103,7 @@ impl HInfinityFilter1D {
     /// Time update:
     /// $$x = x + u$$
     /// $$P = P + Q$$
-    pub fn predict(&mut self, control_input: f64) -> Result<(), FilterError> {
+    pub fn predict(&mut self, control_input: Real) -> Result<(), FilterError> {
         if !control_input.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -116,7 +116,7 @@ impl HInfinityFilter1D {
     ///
     /// Stability condition requires positive-definiteness of Riccati operator:
     /// $$D = 1 - \frac{P}{\gamma^2} + \frac{P}{R} > 0$$
-    pub fn update(&mut self, measurement: f64) -> Result<f64, FilterError> {
+    pub fn update(&mut self, measurement: Real) -> Result<Real, FilterError> {
         if !measurement.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -151,17 +151,17 @@ impl HInfinityFilter1D {
     }
 
     #[inline(always)]
-    pub fn state(&self) -> f64 {
+    pub fn state(&self) -> Real {
         self.x
     }
 
     #[inline(always)]
-    pub fn bound(&self) -> f64 {
+    pub fn bound(&self) -> Real {
         self.p
     }
 
     #[inline(always)]
-    pub fn gamma(&self) -> f64 {
+    pub fn gamma(&self) -> Real {
         self.gamma
     }
 }
@@ -195,21 +195,21 @@ impl HInfinityFilter1D {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AdaptiveFilter1D {
-    pub x: f64,
-    pub p: f64,
-    pub q: f64,
-    pub r: f64,
+    pub x: Real,
+    pub p: Real,
+    pub q: Real,
+    pub r: Real,
     /// Smoothing factor for online noise estimation (0.01 to 0.1)
-    pub alpha: f64,
+    pub alpha: Real,
 }
 
 impl AdaptiveFilter1D {
     pub fn new(
-        initial_x: f64,
-        initial_p: f64,
-        q: f64,
-        initial_r: f64,
-        adaptation_rate: f64,
+        initial_x: Real,
+        initial_p: Real,
+        q: Real,
+        initial_r: Real,
+        adaptation_rate: Real,
     ) -> Result<Self, FilterError> {
         if !initial_x.is_finite()
             || initial_p <= 0.0
@@ -230,7 +230,7 @@ impl AdaptiveFilter1D {
         })
     }
 
-    pub fn predict(&mut self, u: f64) -> Result<(), FilterError> {
+    pub fn predict(&mut self, u: Real) -> Result<(), FilterError> {
         if !u.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -239,7 +239,7 @@ impl AdaptiveFilter1D {
         Ok(())
     }
 
-    pub fn update(&mut self, z: f64) -> Result<f64, FilterError> {
+    pub fn update(&mut self, z: Real) -> Result<Real, FilterError> {
         if !z.is_finite() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -273,7 +273,7 @@ impl AdaptiveFilter1D {
     }
 
     #[inline(always)]
-    pub fn estimated_measurement_noise(&self) -> f64 {
+    pub fn estimated_measurement_noise(&self) -> Real {
         self.r
     }
 }

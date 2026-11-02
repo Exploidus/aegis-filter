@@ -3,7 +3,7 @@
 //! Exposes zero-allocation, deterministic `#![no_std]` state estimation and FDIR pipelines
 //! with C-compatible ABI (`extern "C"`).
 
-use crate::common::FilterError;
+use crate::common::{FilterError, Real};
 use crate::fusion::{FusionStatus, MultiSensorFusion1D, SensorMeasurement, SensorSource};
 use crate::linear::ScalarKalmanFilter;
 use crate::robust::HInfinityFilter1D;
@@ -94,10 +94,10 @@ pub struct AegisScalarFilter {
 #[no_mangle]
 pub unsafe extern "C" fn aegis_scalar_filter_init(
     filter: *mut AegisScalarFilter,
-    initial_state: f64,
-    initial_variance: f64,
-    process_noise_q: f64,
-    measurement_noise_r: f64,
+    initial_state: Real,
+    initial_variance: Real,
+    process_noise_q: Real,
+    measurement_noise_r: Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -124,7 +124,7 @@ pub unsafe extern "C" fn aegis_scalar_filter_init(
 #[no_mangle]
 pub unsafe extern "C" fn aegis_scalar_filter_predict(
     filter: *mut AegisScalarFilter,
-    control_input: f64,
+    control_input: Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -137,10 +137,10 @@ pub unsafe extern "C" fn aegis_scalar_filter_predict(
 }
 
 /// Default recommended 3-sigma innovation gating threshold for adversarial outlier rejection.
-pub const AEGIS_DEFAULT_GATE_SIGMA: f64 = 3.0;
+pub const AEGIS_DEFAULT_GATE_SIGMA: Real = 3.0;
 
 /// Sentinel value to explicitly disable innovation gating in C API calls.
-pub const AEGIS_GATE_DISABLE: f64 = -1.0;
+pub const AEGIS_GATE_DISABLE: Real = -1.0;
 
 /// Configures persistent default outlier gating threshold on the scalar filter (fail-closed posture).
 ///
@@ -152,7 +152,7 @@ pub const AEGIS_GATE_DISABLE: f64 = -1.0;
 #[no_mangle]
 pub unsafe extern "C" fn aegis_scalar_filter_set_default_gate(
     filter: *mut AegisScalarFilter,
-    gate_threshold_sigma: f64,
+    gate_threshold_sigma: Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -184,9 +184,9 @@ pub unsafe extern "C" fn aegis_scalar_filter_set_default_gate(
 #[no_mangle]
 pub unsafe extern "C" fn aegis_scalar_filter_update(
     filter: *mut AegisScalarFilter,
-    measurement: f64,
-    gate_threshold_sigma: f64,
-    out_state: *mut f64,
+    measurement: Real,
+    gate_threshold_sigma: Real,
+    out_state: *mut Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -216,9 +216,9 @@ pub unsafe extern "C" fn aegis_scalar_filter_update(
 /// # Safety
 /// Caller must ensure `filter` points to a valid `AegisScalarFilter` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_scalar_filter_get_state(filter: *const AegisScalarFilter) -> f64 {
+pub unsafe extern "C" fn aegis_scalar_filter_get_state(filter: *const AegisScalarFilter) -> Real {
     if filter.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
     (*filter).inner.state()
 }
@@ -228,9 +228,11 @@ pub unsafe extern "C" fn aegis_scalar_filter_get_state(filter: *const AegisScala
 /// # Safety
 /// Caller must ensure `filter` points to a valid `AegisScalarFilter` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_scalar_filter_get_variance(filter: *const AegisScalarFilter) -> f64 {
+pub unsafe extern "C" fn aegis_scalar_filter_get_variance(
+    filter: *const AegisScalarFilter,
+) -> Real {
     if filter.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
     (*filter).inner.variance()
 }
@@ -252,11 +254,11 @@ pub struct AegisHInfFilter {
 #[no_mangle]
 pub unsafe extern "C" fn aegis_h_inf_filter_init(
     filter: *mut AegisHInfFilter,
-    initial_state: f64,
-    initial_variance: f64,
-    process_bound_q: f64,
-    measurement_bound_r: f64,
-    gamma: f64,
+    initial_state: Real,
+    initial_variance: Real,
+    process_bound_q: Real,
+    measurement_bound_r: Real,
+    gamma: Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -284,7 +286,7 @@ pub unsafe extern "C" fn aegis_h_inf_filter_init(
 #[no_mangle]
 pub unsafe extern "C" fn aegis_h_inf_filter_predict(
     filter: *mut AegisHInfFilter,
-    control_input: f64,
+    control_input: Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -303,8 +305,8 @@ pub unsafe extern "C" fn aegis_h_inf_filter_predict(
 #[no_mangle]
 pub unsafe extern "C" fn aegis_h_inf_filter_update(
     filter: *mut AegisHInfFilter,
-    measurement: f64,
-    out_state: *mut f64,
+    measurement: Real,
+    out_state: *mut Real,
 ) -> AegisStatusCode {
     if filter.is_null() {
         return AegisStatusCode::NullPointer;
@@ -326,9 +328,9 @@ pub unsafe extern "C" fn aegis_h_inf_filter_update(
 /// # Safety
 /// Caller must ensure `filter` points to a valid `AegisHInfFilter` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_h_inf_filter_get_state(filter: *const AegisHInfFilter) -> f64 {
+pub unsafe extern "C" fn aegis_h_inf_filter_get_state(filter: *const AegisHInfFilter) -> Real {
     if filter.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
     (*filter).inner.state()
 }
@@ -338,9 +340,9 @@ pub unsafe extern "C" fn aegis_h_inf_filter_get_state(filter: *const AegisHInfFi
 /// # Safety
 /// Caller must ensure `filter` points to a valid `AegisHInfFilter` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_h_inf_filter_get_bound(filter: *const AegisHInfFilter) -> f64 {
+pub unsafe extern "C" fn aegis_h_inf_filter_get_bound(filter: *const AegisHInfFilter) -> Real {
     if filter.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
     (*filter).inner.bound()
 }
@@ -362,9 +364,9 @@ pub struct AegisFusion4 {
 #[no_mangle]
 pub unsafe extern "C" fn aegis_fusion4_init(
     fusion: *mut AegisFusion4,
-    x0: f64,
-    p0: f64,
-    q: f64,
+    x0: Real,
+    p0: Real,
+    q: Real,
 ) -> AegisStatusCode {
     if fusion.is_null() {
         return AegisStatusCode::NullPointer;
@@ -387,9 +389,9 @@ pub unsafe extern "C" fn aegis_fusion4_init(
 pub unsafe extern "C" fn aegis_fusion4_register_sensor(
     fusion: *mut AegisFusion4,
     sensor_id: u8,
-    variance: f64,
+    variance: Real,
     max_consecutive_anomalies: u32,
-    gate_threshold_sigma: f64,
+    gate_threshold_sigma: Real,
     auto_recovery_threshold: u32,
 ) -> AegisStatusCode {
     if fusion.is_null() {
@@ -425,7 +427,7 @@ pub unsafe extern "C" fn aegis_fusion4_register_sensor(
 #[no_mangle]
 pub unsafe extern "C" fn aegis_fusion4_predict(
     fusion: *mut AegisFusion4,
-    control_input: f64,
+    control_input: Real,
 ) -> AegisStatusCode {
     if fusion.is_null() {
         return AegisStatusCode::NullPointer;
@@ -445,7 +447,7 @@ pub unsafe extern "C" fn aegis_fusion4_predict(
 pub unsafe extern "C" fn aegis_fusion4_fuse(
     fusion: *mut AegisFusion4,
     sensor_id: u8,
-    value: f64,
+    value: Real,
     out_status: *mut AegisFusionStatusCode,
 ) -> AegisStatusCode {
     if fusion.is_null() {
@@ -469,9 +471,9 @@ pub unsafe extern "C" fn aegis_fusion4_fuse(
 /// # Safety
 /// Caller must ensure `fusion` points to a valid `AegisFusion4` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_fusion4_get_state(fusion: *const AegisFusion4) -> f64 {
+pub unsafe extern "C" fn aegis_fusion4_get_state(fusion: *const AegisFusion4) -> Real {
     if fusion.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
     (*fusion).inner.x
 }
@@ -481,9 +483,9 @@ pub unsafe extern "C" fn aegis_fusion4_get_state(fusion: *const AegisFusion4) ->
 /// # Safety
 /// Caller must ensure `fusion` points to a valid `AegisFusion4` or null.
 #[no_mangle]
-pub unsafe extern "C" fn aegis_fusion4_get_variance(fusion: *const AegisFusion4) -> f64 {
+pub unsafe extern "C" fn aegis_fusion4_get_variance(fusion: *const AegisFusion4) -> Real {
     if fusion.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
     (*fusion).inner.p
 }
@@ -496,11 +498,14 @@ pub unsafe extern "C" fn aegis_fusion4_get_variance(fusion: *const AegisFusion4)
 pub unsafe extern "C" fn aegis_fusion4_get_sensor_health(
     fusion: *const AegisFusion4,
     sensor_id: u8,
-) -> f64 {
+) -> Real {
     if fusion.is_null() {
-        return f64::NAN;
+        return Real::NAN;
     }
-    (*fusion).inner.sensor_health(sensor_id).unwrap_or(f64::NAN)
+    (*fusion)
+        .inner
+        .sensor_health(sensor_id)
+        .unwrap_or(Real::NAN)
 }
 
 #[cfg(test)]

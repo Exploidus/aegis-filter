@@ -34,7 +34,7 @@ pub mod robust;
 pub mod stats;
 pub mod unscented;
 
-pub use common::{FilterError, DEFAULT_OUTLIER_GATE_SIGMA};
+pub use common::{FilterError, Real, DEFAULT_OUTLIER_GATE_SIGMA};
 pub use eskf::{
     ErrorStateKalmanFilter, EskfNoiseParameters, EskfNominalState, Quaternion, Vector3,
     EARTH_GRAVITY_Z_UP,
@@ -96,7 +96,7 @@ mod tests {
         // h(x) = x[0]^2 — non-linear. With tight initial covariance sigma
         // points stay close to mean, so linearisation error is small and a
         // single update step visibly moves the state toward the true value.
-        let true_pos: f64 = 3.0;
+        let true_pos: Real = 3.0;
         let mut ukf = UnscentedKalmanFilter2D::new(
             [true_pos + 0.5, 0.0],
             [[0.04, 0.0], [0.0, 0.04]], // tight — sigma points ±0.2 from mean
@@ -133,21 +133,26 @@ mod tests {
         )
         .unwrap();
 
+        #[cfg(feature = "single-precision")]
+        let tol: Real = 1e-4;
+        #[cfg(not(feature = "single-precision"))]
+        let tol: Real = 1e-12;
+
         ukf.predict(0.1, |x, _dt| [x[0] + 0.1, x[1]]).unwrap();
         let est = ukf.update(1.0, |x| x[0], None).unwrap();
         assert!(
-            (est[0] - 0.7019867549668872).abs() < 1e-12,
+            (est[0] - 0.7019867549668872).abs() < tol,
             "est[0] = {}",
             est[0]
         );
-        assert!((est[1] - 0.0).abs() < 1e-12, "est[1] = {}", est[1]);
+        assert!((est[1] - 0.0).abs() < tol, "est[1] = {}", est[1]);
         assert!(
-            (ukf.p[0][0] - 0.3344370860927156).abs() < 1e-12,
+            (ukf.p[0][0] - 0.3344370860927156).abs() < tol,
             "p00 = {}",
             ukf.p[0][0]
         );
         assert!(
-            (ukf.p[1][1] - 1.0099999999999998).abs() < 1e-12,
+            (ukf.p[1][1] - 1.0099999999999998).abs() < tol,
             "p11 = {}",
             ukf.p[1][1]
         );
@@ -158,12 +163,12 @@ mod tests {
             .unwrap();
         let est2 = ukf.update(1.2, |x| x[0], None).unwrap();
         assert!(
-            (est2[0] - 0.9643322092384911).abs() < 1e-12,
+            (est2[0] - 0.9643322092384911).abs() < tol,
             "est2[0] = {}",
             est2[0]
         );
         assert!(
-            (est2[1] - 0.050000000000000044).abs() < 1e-12,
+            (est2[1] - 0.050000000000000044).abs() < tol,
             "est2[1] = {}",
             est2[1]
         );
@@ -194,12 +199,12 @@ mod tests {
 
     #[test]
     fn test_nan_inf_rejection() {
-        let result = ScalarKalmanFilter::new(f64::NAN, 1.0, 0.1, 1.0);
+        let result = ScalarKalmanFilter::new(Real::NAN, 1.0, 0.1, 1.0);
         assert_eq!(result.err(), Some(FilterError::NonFiniteInput));
 
         let mut f = ScalarKalmanFilter::new(0.0, 1.0, 0.1, 1.0).unwrap();
         assert_eq!(
-            f.update(f64::INFINITY, None).err(),
+            f.update(Real::INFINITY, None).err(),
             Some(FilterError::NonFiniteInput)
         );
     }
@@ -506,16 +511,22 @@ mod tests {
     #[test]
     fn test_zero_panics_property_stress() {
         let extreme_floats = [
-            f64::NAN,
-            f64::INFINITY,
-            f64::NEG_INFINITY,
+            Real::NAN,
+            Real::INFINITY,
+            Real::NEG_INFINITY,
             0.0,
             -0.0,
-            f64::MIN_POSITIVE,
-            f64::MAX,
-            -f64::MAX,
+            Real::MIN_POSITIVE,
+            Real::MAX,
+            -Real::MAX,
+            #[cfg(not(feature = "single-precision"))]
             1e-300,
+            #[cfg(not(feature = "single-precision"))]
             1e300,
+            #[cfg(feature = "single-precision")]
+            1e-35,
+            #[cfg(feature = "single-precision")]
+            1e35,
         ];
 
         let mut kf = ScalarKalmanFilter::new(0.0, 1.0, 0.01, 0.5).unwrap();

@@ -3,7 +3,7 @@
 //! Designed for mission-critical aerospace, robotics, and maritime telemetry where redundant sensors
 //! (e.g., GPS, Barometer, Rangefinder/LiDAR) must be fused safely with real-time adversarial isolation.
 
-use crate::common::{FilterError, FloatOps};
+use crate::common::{FilterError, FloatOps, Real};
 
 /// Represents an individual sensor source participating in the multi-sensor fusion pipeline.
 #[derive(Debug, Clone, Copy)]
@@ -12,9 +12,9 @@ pub struct SensorSource {
     /// Sensor unique identifier
     pub id: u8,
     /// Measurement noise variance (R)
-    pub variance: f64,
+    pub variance: Real,
     /// 3-sigma innovation gating threshold
-    pub gate_threshold: f64,
+    pub gate_threshold: Real,
     /// Consecutive anomaly count for automated isolation
     pub anomaly_count: u32,
     /// Maximum allowable consecutive anomalies before quarantine
@@ -22,7 +22,7 @@ pub struct SensorSource {
     /// Whether this sensor is currently isolated / quarantined
     pub is_quarantined: bool,
     /// Health score from 0.0 (failed) to 1.0 (nominal)
-    pub health_score: f64,
+    pub health_score: Real,
     /// Consecutive healthy measurements observed while quarantined
     pub consecutive_healthy: u32,
     /// Threshold of consecutive healthy measurements required to auto-recover (0 to disable)
@@ -31,7 +31,7 @@ pub struct SensorSource {
 
 impl SensorSource {
     /// Creates a new sensor source configuration.
-    pub fn new(id: u8, variance: f64, max_anomalies: u32) -> Result<Self, FilterError> {
+    pub fn new(id: u8, variance: Real, max_anomalies: u32) -> Result<Self, FilterError> {
         if !variance.is_valid_float() || variance <= 0.0 {
             return Err(FilterError::InvalidParameter);
         }
@@ -49,7 +49,7 @@ impl SensorSource {
     }
 
     /// Sets custom chi-square / sigma gating threshold.
-    pub fn with_gate_threshold(mut self, threshold: f64) -> Result<Self, FilterError> {
+    pub fn with_gate_threshold(mut self, threshold: Real) -> Result<Self, FilterError> {
         if !threshold.is_valid_float() || threshold <= 0.0 {
             return Err(FilterError::InvalidParameter);
         }
@@ -79,7 +79,7 @@ pub struct SensorMeasurement {
     /// Sensor ID matching the configured `SensorSource`
     pub sensor_id: u8,
     /// Measured observation value
-    pub value: f64,
+    pub value: Real,
 }
 
 /// Result of a sensor fusion update step.
@@ -116,18 +116,18 @@ pub enum FusionStatus {
 #[derive(Debug, Clone)]
 pub struct MultiSensorFusion1D<const N: usize> {
     /// Estimated state mean
-    pub x: f64,
+    pub x: Real,
     /// Estimated state error variance
-    pub p: f64,
+    pub p: Real,
     /// Process noise variance (Q)
-    pub q: f64,
+    pub q: Real,
     /// Array of registered sensor sources
     pub sensors: [Option<SensorSource>; N],
 }
 
 impl<const N: usize> MultiSensorFusion1D<N> {
     /// Creates a new multi-sensor fusion filter.
-    pub fn new(x0: f64, p0: f64, q: f64) -> Result<Self, FilterError> {
+    pub fn new(x0: Real, p0: Real, q: Real) -> Result<Self, FilterError> {
         if !x0.is_valid_float() || !p0.is_valid_float() || !q.is_valid_float() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -160,7 +160,7 @@ impl<const N: usize> MultiSensorFusion1D<N> {
     }
 
     /// Predicts state forward using linear physical transition.
-    pub fn predict(&mut self, control_input: f64) -> Result<(), FilterError> {
+    pub fn predict(&mut self, control_input: Real) -> Result<(), FilterError> {
         if !control_input.is_valid_float() {
             return Err(FilterError::NonFiniteInput);
         }
@@ -258,17 +258,17 @@ impl<const N: usize> MultiSensorFusion1D<N> {
     }
 
     /// Returns current state estimate.
-    pub fn state(&self) -> f64 {
+    pub fn state(&self) -> Real {
         self.x
     }
 
     /// Returns current estimation error variance.
-    pub fn variance(&self) -> f64 {
+    pub fn variance(&self) -> Real {
         self.p
     }
 
     /// Returns the active health score of a sensor by ID.
-    pub fn sensor_health(&self, sensor_id: u8) -> Option<f64> {
+    pub fn sensor_health(&self, sensor_id: u8) -> Option<Real> {
         for s in self.sensors.iter().flatten() {
             if s.id == sensor_id {
                 return Some(s.health_score);

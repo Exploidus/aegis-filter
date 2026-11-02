@@ -23,7 +23,7 @@
 //! - First-order exponential map rotation updates and error-reset covariance correction.
 //! - Joseph-form stabilized scalar and 3-axis observation updates.
 
-use crate::common::{FilterError, FloatOps, DEFAULT_OUTLIER_GATE_SIGMA};
+use crate::common::{FilterError, FloatOps, Real, DEFAULT_OUTLIER_GATE_SIGMA};
 
 /// Standard gravitational acceleration vector in Earth navigation frame (z-down or z-up).
 pub const EARTH_GRAVITY_Z_UP: Vector3 = Vector3::new(0.0, 0.0, -9.80665);
@@ -32,16 +32,16 @@ pub const EARTH_GRAVITY_Z_UP: Vector3 = Vector3::new(0.0, 0.0, -9.80665);
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Vector3 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: Real,
+    pub y: Real,
+    pub z: Real,
 }
 
 impl Vector3 {
     pub const ZERO: Self = Self::new(0.0, 0.0, 0.0);
 
     #[inline(always)]
-    pub const fn new(x: f64, y: f64, z: f64) -> Self {
+    pub const fn new(x: Real, y: Real, z: Real) -> Self {
         Self { x, y, z }
     }
 
@@ -61,12 +61,12 @@ impl Vector3 {
     }
 
     #[inline(always)]
-    pub fn scale(&self, s: f64) -> Self {
+    pub fn scale(&self, s: Real) -> Self {
         Self::new(self.x * s, self.y * s, self.z * s)
     }
 
     #[inline(always)]
-    pub fn dot(&self, rhs: &Self) -> f64 {
+    pub fn dot(&self, rhs: &Self) -> Real {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
 
@@ -80,12 +80,12 @@ impl Vector3 {
     }
 
     #[inline(always)]
-    pub fn norm_squared(&self) -> f64 {
+    pub fn norm_squared(&self) -> Real {
         self.dot(self)
     }
 
     #[inline(always)]
-    pub fn norm(&self) -> f64 {
+    pub fn norm(&self) -> Real {
         self.norm_squared().sqrt_val()
     }
 
@@ -103,17 +103,17 @@ impl Vector3 {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Quaternion {
-    pub w: f64,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub w: Real,
+    pub x: Real,
+    pub y: Real,
+    pub z: Real,
 }
 
 impl Quaternion {
     pub const IDENTITY: Self = Self::new(1.0, 0.0, 0.0, 0.0);
 
     #[inline(always)]
-    pub const fn new(w: f64, x: f64, y: f64, z: f64) -> Self {
+    pub const fn new(w: Real, x: Real, y: Real, z: Real) -> Self {
         Self { w, x, y, z }
     }
 
@@ -126,12 +126,12 @@ impl Quaternion {
     }
 
     #[inline(always)]
-    pub fn norm_squared(&self) -> f64 {
+    pub fn norm_squared(&self) -> Real {
         self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z
     }
 
     #[inline(always)]
-    pub fn norm(&self) -> f64 {
+    pub fn norm(&self) -> Real {
         self.norm_squared().sqrt_val()
     }
 
@@ -205,7 +205,7 @@ impl Quaternion {
 
     /// Constructs 3x3 direction cosine matrix (rotation matrix from body to nav frame).
     #[inline]
-    pub fn to_rotation_matrix(&self) -> [[f64; 3]; 3] {
+    pub fn to_rotation_matrix(&self) -> [[Real; 3]; 3] {
         let (w, x, y, z) = (self.w, self.x, self.y, self.z);
         [
             [
@@ -232,21 +232,21 @@ impl Quaternion {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EskfNoiseParameters {
     /// Accelerometer continuous noise density ($m/s^2 / \sqrt{Hz}$).
-    pub accel_noise: f64,
+    pub accel_noise: Real,
     /// Gyroscope continuous noise density ($rad/s / \sqrt{Hz}$).
-    pub gyro_noise: f64,
+    pub gyro_noise: Real,
     /// Accelerometer bias random walk ($m/s^3 / \sqrt{Hz}$).
-    pub accel_bias_noise: f64,
+    pub accel_bias_noise: Real,
     /// Gyroscope bias random walk ($rad/s^2 / \sqrt{Hz}$).
-    pub gyro_bias_noise: f64,
+    pub gyro_bias_noise: Real,
 }
 
 impl EskfNoiseParameters {
     pub const fn new(
-        accel_noise: f64,
-        gyro_noise: f64,
-        accel_bias_noise: f64,
-        gyro_bias_noise: f64,
+        accel_noise: Real,
+        gyro_noise: Real,
+        accel_bias_noise: Real,
+        gyro_bias_noise: Real,
     ) -> Self {
         Self {
             accel_noise,
@@ -290,7 +290,7 @@ impl EskfNominalState {
 #[derive(Debug, Clone)]
 pub struct ErrorStateKalmanFilter {
     state: EskfNominalState,
-    cov: [[f64; 15]; 15],
+    cov: [[Real; 15]; 15],
     noise: EskfNoiseParameters,
     gravity: Vector3,
 }
@@ -299,7 +299,7 @@ impl ErrorStateKalmanFilter {
     /// Initializes ESKF with nominal state, diagonal covariance, and process noise parameters.
     pub fn new(
         initial_state: EskfNominalState,
-        initial_cov_diag: [f64; 15],
+        initial_cov_diag: [Real; 15],
         noise: EskfNoiseParameters,
         gravity: Vector3,
     ) -> Result<Self, FilterError> {
@@ -339,7 +339,7 @@ impl ErrorStateKalmanFilter {
     }
 
     #[inline(always)]
-    pub fn cov(&self) -> &[[f64; 15]; 15] {
+    pub fn cov(&self) -> &[[Real; 15]; 15] {
         &self.cov
     }
 
@@ -348,7 +348,7 @@ impl ErrorStateKalmanFilter {
         &mut self,
         accel_meas: &Vector3,
         gyro_meas: &Vector3,
-        dt: f64,
+        dt: Real,
     ) -> Result<(), FilterError> {
         if !accel_meas.is_valid() || !gyro_meas.is_valid() || !dt.is_valid_float() || dt <= 0.0 {
             return Err(FilterError::NonFiniteInput);
@@ -494,10 +494,10 @@ impl ErrorStateKalmanFilter {
     /// Performs scalar measurement update with Mahalanobis outlier gating and Joseph-form covariance reset.
     fn update_scalar(
         &mut self,
-        y: f64,
-        h: [f64; 15],
-        r_var: f64,
-        gate_sigma: Option<f64>,
+        y: Real,
+        h: [Real; 15],
+        r_var: Real,
+        gate_sigma: Option<Real>,
     ) -> Result<(), FilterError> {
         if !y.is_valid_float() || !r_var.is_valid_float() || r_var <= 0.0 {
             return Err(FilterError::NonFiniteInput);
@@ -588,8 +588,8 @@ impl ErrorStateKalmanFilter {
     pub fn update_position(
         &mut self,
         meas_pos: &Vector3,
-        noise_var: f64,
-        gate_sigma: Option<f64>,
+        noise_var: Real,
+        gate_sigma: Option<Real>,
     ) -> Result<(), FilterError> {
         let y_x = meas_pos.x - self.state.position.x;
         let mut h_x = [0.0; 15];
@@ -613,8 +613,8 @@ impl ErrorStateKalmanFilter {
     pub fn update_velocity(
         &mut self,
         meas_vel: &Vector3,
-        noise_var: f64,
-        gate_sigma: Option<f64>,
+        noise_var: Real,
+        gate_sigma: Option<Real>,
     ) -> Result<(), FilterError> {
         let y_x = meas_vel.x - self.state.velocity.x;
         let mut h_x = [0.0; 15];
@@ -639,8 +639,8 @@ impl ErrorStateKalmanFilter {
         &mut self,
         mag_body: &Vector3,
         mag_ref_nav: &Vector3,
-        noise_var: f64,
-        gate_sigma: Option<f64>,
+        noise_var: Real,
+        gate_sigma: Option<Real>,
     ) -> Result<(), FilterError> {
         if !mag_body.is_valid() || !mag_ref_nav.is_valid() {
             return Err(FilterError::NonFiniteInput);

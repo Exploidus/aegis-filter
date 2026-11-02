@@ -2,12 +2,12 @@
 //!
 //! Designed for `#![no_std]` environments with const-generic fixed buffers and zero heap allocations.
 
-use crate::common::{FilterError, FloatOps};
+use crate::common::{FilterError, FloatOps, Real};
 
 /// Deterministic, zero-allocation rolling window statistics over a fixed capacity `N`.
 #[derive(Debug, Clone, Copy)]
 pub struct WindowedStats<const N: usize> {
-    buffer: [f64; N],
+    buffer: [Real; N],
     count: usize,
     head: usize,
 }
@@ -44,7 +44,7 @@ impl<const N: usize> WindowedStats<N> {
     }
 
     /// Pushes a new sample into the window, overwriting the oldest sample if capacity is reached.
-    pub fn push(&mut self, sample: f64) -> Result<(), FilterError> {
+    pub fn push(&mut self, sample: Real) -> Result<(), FilterError> {
         if N == 0 {
             return Err(FilterError::CapacityExceeded);
         }
@@ -60,7 +60,7 @@ impl<const N: usize> WindowedStats<N> {
     }
 
     /// Computes the arithmetic mean of the samples in the current window.
-    pub fn mean(&self) -> Option<f64> {
+    pub fn mean(&self) -> Option<Real> {
         if self.count == 0 {
             return None;
         }
@@ -68,11 +68,11 @@ impl<const N: usize> WindowedStats<N> {
         for i in 0..self.count {
             sum += self.buffer[i];
         }
-        Some(sum / self.count as f64)
+        Some(sum / self.count as Real)
     }
 
     /// Computes sample variance of the windowed samples.
-    pub fn variance(&self) -> Option<f64> {
+    pub fn variance(&self) -> Option<Real> {
         if self.count < 2 {
             return Some(0.0);
         }
@@ -82,17 +82,17 @@ impl<const N: usize> WindowedStats<N> {
             let diff = self.buffer[i] - m;
             sum_sq += diff * diff;
         }
-        Some(sum_sq / (self.count - 1) as f64)
+        Some(sum_sq / (self.count - 1) as Real)
     }
 
     /// Computes standard deviation of the windowed samples.
-    pub fn std_dev(&self) -> Option<f64> {
+    pub fn std_dev(&self) -> Option<Real> {
         let v = self.variance()?;
         Some(v.sqrt_val())
     }
 
     /// Returns the minimum value in the current window.
-    pub fn min(&self) -> Option<f64> {
+    pub fn min(&self) -> Option<Real> {
         if self.count == 0 {
             return None;
         }
@@ -106,7 +106,7 @@ impl<const N: usize> WindowedStats<N> {
     }
 
     /// Returns the maximum value in the current window.
-    pub fn max(&self) -> Option<f64> {
+    pub fn max(&self) -> Option<Real> {
         if self.count == 0 {
             return None;
         }
@@ -120,7 +120,7 @@ impl<const N: usize> WindowedStats<N> {
     }
 
     /// Returns peak-to-peak spread (max - min).
-    pub fn peak_to_peak(&self) -> Option<f64> {
+    pub fn peak_to_peak(&self) -> Option<Real> {
         if self.count == 0 {
             return None;
         }
