@@ -789,8 +789,12 @@ mod tests {
         )
         .unwrap();
         let out = f.update(&[4.0, 2.0], None).unwrap();
-        assert!((out[0] - 1.2).abs() < 1e-9, "out[0] = {}", out[0]);
-        assert!((out[1] - 1.6).abs() < 1e-9, "out[1] = {}", out[1]);
+        #[cfg(feature = "single-precision")]
+        let tol: Real = 1e-4;
+        #[cfg(not(feature = "single-precision"))]
+        let tol: Real = 1e-9;
+        assert!((out[0] - 1.2).abs() < tol, "out[0] = {}", out[0]);
+        assert!((out[1] - 1.6).abs() < tol, "out[1] = {}", out[1]);
     }
     // (9) Factored O(S^3) Joseph update test for S=4, M=2: verifies that the factored
     // (E*P)*E^T + (K*S)*K^T produces identical positive semi-definite, symmetric covariance.

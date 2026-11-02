@@ -133,21 +133,26 @@ mod tests {
         )
         .unwrap();
 
+        #[cfg(feature = "single-precision")]
+        let tol: Real = 1e-4;
+        #[cfg(not(feature = "single-precision"))]
+        let tol: Real = 1e-12;
+
         ukf.predict(0.1, |x, _dt| [x[0] + 0.1, x[1]]).unwrap();
         let est = ukf.update(1.0, |x| x[0], None).unwrap();
         assert!(
-            (est[0] - 0.7019867549668872).abs() < 1e-12,
+            (est[0] - 0.7019867549668872).abs() < tol,
             "est[0] = {}",
             est[0]
         );
-        assert!((est[1] - 0.0).abs() < 1e-12, "est[1] = {}", est[1]);
+        assert!((est[1] - 0.0).abs() < tol, "est[1] = {}", est[1]);
         assert!(
-            (ukf.p[0][0] - 0.3344370860927156).abs() < 1e-12,
+            (ukf.p[0][0] - 0.3344370860927156).abs() < tol,
             "p00 = {}",
             ukf.p[0][0]
         );
         assert!(
-            (ukf.p[1][1] - 1.0099999999999998).abs() < 1e-12,
+            (ukf.p[1][1] - 1.0099999999999998).abs() < tol,
             "p11 = {}",
             ukf.p[1][1]
         );
@@ -158,12 +163,12 @@ mod tests {
             .unwrap();
         let est2 = ukf.update(1.2, |x| x[0], None).unwrap();
         assert!(
-            (est2[0] - 0.9643322092384911).abs() < 1e-12,
+            (est2[0] - 0.9643322092384911).abs() < tol,
             "est2[0] = {}",
             est2[0]
         );
         assert!(
-            (est2[1] - 0.050000000000000044).abs() < 1e-12,
+            (est2[1] - 0.050000000000000044).abs() < tol,
             "est2[1] = {}",
             est2[1]
         );
