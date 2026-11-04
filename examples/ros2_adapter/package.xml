@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>aegis_ros2_adapter</name>
+  <version>0.4.0</version>
+  <description>
+    High-integrity ROS 2 C++ node adapter integrating the aegis-filter state estimation
+    and FDIR engine with zero heap allocation in real-time sensor processing pipelines.
+  </description>
+  <maintainer email="rahadbhuiya2021@gmail.com">Rahad Bhuiya</maintainer>
+  <license>MIT</license>
+  <license>Apache-2.0</license>
+
+  <url type="website">https://github.com/Exploidus/aegis-filter</url>
+  <url type="repository">https://github.com/Exploidus/aegis-filter</url>
+  <url type="bugtracker">https://github.com/Exploidus/aegis-filter/issues</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

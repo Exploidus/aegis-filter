@@ -135,7 +135,7 @@ cargo run --example battery_soc_estimation
   ```
   Produces `libaegis_filter.a` for direct linking with C/C++ toolchains (GCC, Clang, MSVC).
 
-### Integration Example: NASA F Prime GNC Component
+### Integration Example 1: NASA F Prime GNC Component
 
 The repository includes a reference adapter demonstrating how to bind `aegis-filter` into flight software architectures such as NASA's [F Prime](https://nasa.github.io/fprime/) framework:
 
