@@ -1,6 +1,6 @@
 //! Classical Linear & Kinematic Kalman Filters with Joseph stabilized covariance.
 
-use crate::common::{FilterError, FloatOps, Real};
+use crate::common::{FilterError, FloatOps, Real, DEFAULT_MAX_CONDITION_NUMBER};
 
 /// 1D Scalar Kalman Filter with Joseph-stabilized variance update.
 ///
@@ -556,67 +556,227 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
         Ok(x_new)
     }
 
-    /// Gauss-Jordan inversion of a const-sized `N x N` matrix with partial pivoting.
+    /// Computes the 1-norm numerical condition number $\kappa_1(P) = \|P\|_1 \cdot \|P^{-1}\|_1$ of state covariance $P$.
     ///
-    /// Invert is the one numerically sensitive step in [`update`]; a ~zero pivot after
-    /// pivoting means the matrix is singular (or numerically rank-deficient) and we return
-    /// [`FilterError::NumericalInstability`] rather than divide by it. Threshold `1e-15`
-    /// matches the singularity guard the 1D filter uses for its scalar innovation covariance.
-    #[allow(clippy::needless_range_loop)] // index loops over const-generic buffers
-    fn invert_matrix<const N: usize>(m: &[[Real; N]; N]) -> Result<[[Real; N]; N], FilterError> {
-        // Two N x N buffers instead of one 2*N augmented block: a generic const param may
-        // not appear in const arithmetic (`2 * N`) under edition 2021. `mat` accumulates the
-        // pivots so its left side becomes I; `inv` follows the identical row ops and so
-        // becomes M^-1. Both stay on the stack, keeping the crate zero-allocation / no_std.
-        let mut mat = [[0.0; N]; N];
-        let mut inv = [[0.0; N]; N];
-        for i in 0..N {
-            for j in 0..N {
-                mat[i][j] = m[i][j];
-                inv[i][j] = if i == j { 1.0 } else { 0.0 };
-            }
-        }
-
-        for col in 0..N {
-            // Partial pivot: pick the row with the largest |pivot| in this column to
-            // avoid dividing by a near-zero value (improves numerical stability).
-            let mut pivot = col;
-            for r in (col + 1)..N {
-                if mat[r][col].abs_val() > mat[pivot][col].abs_val() {
-                    pivot = r;
-                }
-            }
-            if mat[pivot][col].abs_val() < 1e-15 {
-                return Err(FilterError::NumericalInstability);
-            }
-            // The pivot swap must hit both buffers so they stay row-aligned.
-            mat.swap(col, pivot);
-            inv.swap(col, pivot);
-
-            // Normalise the pivot row to a unit diagonal.
-            let inv_diag = 1.0 / mat[col][col];
-            for j in 0..N {
-                mat[col][j] *= inv_diag;
-                inv[col][j] *= inv_diag;
-            }
-
-            // Eliminate this column from every other row, applying the same op to `inv`.
-            for r in 0..N {
-                if r == col {
-                    continue;
-                }
-                let factor = mat[r][col];
-                if factor == 0.0 {
-                    continue;
-                }
-                for j in 0..N {
-                    mat[r][j] -= factor * mat[col][j];
-                    inv[r][j] -= factor * inv[col][j];
-                }
-            }
-        }
-
-        // When mat is the identity, inv holds M^-1.
-        Ok(inv)
+    /// An ill-conditioned covariance matrix ($\kappa \gg 1$) indicates loss of numerical precision or near-singularity,
+    /// which can cause filter divergence during Kalman gain computation.
+    #[inline]
+    pub fn condition_number(&self) -> Result<Real, FilterError> {
+        matrix_condition_number(&self.p)
     }
+
+    /// Checks whether state covariance $P$ is well-conditioned against a specified maximum threshold.
+    ///
+    /// Rejects non-positive, asymmetric, or ill-conditioned covariances with [`FilterError::InvalidCovariance`].
+    #[inline]
+    pub fn check_conditioning(&self, max_condition_number: Real) -> Result<Real, FilterError> {
+        check_matrix_conditioning(&self.p, max_condition_number)
+    }
+
+    /// Quick boolean check whether state covariance $P$ is well-conditioned against [`DEFAULT_MAX_CONDITION_NUMBER`].
+    #[inline]
+    pub fn is_well_conditioned(&self) -> bool {
+        self.check_conditioning(DEFAULT_MAX_CONDITION_NUMBER)
+            .is_ok()
+    }
+
+    /// Inverts an $N \times N$ matrix via Gauss-Jordan elimination with partial pivoting.
+    ///
+    /// Kept for backwards compatibility; delegates to [`invert_matrix`].
+    #[inline(always)]
+    pub fn invert_matrix<const N: usize>(
+        m: &[[Real; N]; N],
+    ) -> Result<[[Real; N]; N], FilterError> {
+        invert_matrix(m)
+    }
+}
+
+#[cfg(not(feature = "single-precision"))]
+const SINGULARITY_EPSILON: Real = 1e-15;
+
+#[cfg(feature = "single-precision")]
+const SINGULARITY_EPSILON: Real = 1e-7;
+
+/// Computes the matrix 1-norm (maximum absolute column sum) in $O(R \cdot C)$ with zero heap allocation.
+///
+/// $$\|M\|_1 = \max_{0 \le j < C} \sum_{i=0}^{R-1} |M_{ij}|$$
+#[allow(clippy::needless_range_loop)]
+pub fn matrix_norm_1<const R: usize, const C: usize>(m: &[[Real; C]; R]) -> Real {
+    let mut max_col_sum: Real = 0.0;
+    for col in 0..C {
+        let mut col_sum: Real = 0.0;
+        for row in 0..R {
+            col_sum += m[row][col].abs_val();
+        }
+        if col_sum > max_col_sum {
+            max_col_sum = col_sum;
+        }
+    }
+    max_col_sum
+}
+
+/// Computes the matrix $\infty$-norm (maximum absolute row sum) in $O(R \cdot C)$ with zero heap allocation.
+///
+/// $$\|M\|_\infty = \max_{0 \le i < R} \sum_{j=0}^{C-1} |M_{ij}|$$
+#[allow(clippy::needless_range_loop)]
+pub fn matrix_norm_inf<const R: usize, const C: usize>(m: &[[Real; C]; R]) -> Real {
+    let mut max_row_sum: Real = 0.0;
+    for row in 0..R {
+        let mut row_sum: Real = 0.0;
+        for col in 0..C {
+            row_sum += m[row][col].abs_val();
+        }
+        if row_sum > max_row_sum {
+            max_row_sum = row_sum;
+        }
+    }
+    max_row_sum
+}
+
+/// Computes the matrix Frobenius norm in $O(R \cdot C)$ with zero heap allocation.
+///
+/// $$\|M\|_F = \sqrt{\sum_{i=0}^{R-1} \sum_{j=0}^{C-1} M_{ij}^2}$$
+#[allow(clippy::needless_range_loop)]
+pub fn matrix_norm_frobenius<const R: usize, const C: usize>(m: &[[Real; C]; R]) -> Real {
+    let mut sum_sq: Real = 0.0;
+    for row in 0..R {
+        for col in 0..C {
+            let val = m[row][col];
+            sum_sq += val * val;
+        }
+    }
+    sum_sq.sqrt_val()
+}
+
+/// Gauss-Jordan inversion of a const-sized $N \times N$ matrix with partial pivoting in pure `#[no_std]` stack memory.
+///
+/// Inversion is performed in-place using two stack-allocated buffers `mat` and `inv`, ensuring
+/// zero heap allocation. Returns [`FilterError::NumericalInstability`] if a pivot is near-zero (singular matrix).
+#[allow(clippy::needless_range_loop)]
+pub fn invert_matrix<const N: usize>(m: &[[Real; N]; N]) -> Result<[[Real; N]; N], FilterError> {
+    let mut mat = [[0.0; N]; N];
+    let mut inv = [[0.0; N]; N];
+    for i in 0..N {
+        for j in 0..N {
+            mat[i][j] = m[i][j];
+            inv[i][j] = if i == j { 1.0 } else { 0.0 };
+        }
+    }
+
+    for col in 0..N {
+        let mut pivot = col;
+        for r in (col + 1)..N {
+            if mat[r][col].abs_val() > mat[pivot][col].abs_val() {
+                pivot = r;
+            }
+        }
+        if mat[pivot][col].abs_val() < SINGULARITY_EPSILON {
+            return Err(FilterError::NumericalInstability);
+        }
+        mat.swap(col, pivot);
+        inv.swap(col, pivot);
+
+        let inv_diag = 1.0 / mat[col][col];
+        for j in 0..N {
+            mat[col][j] *= inv_diag;
+            inv[col][j] *= inv_diag;
+        }
+
+        for r in 0..N {
+            if r == col {
+                continue;
+            }
+            let factor = mat[r][col];
+            if factor == 0.0 {
+                continue;
+            }
+            for j in 0..N {
+                mat[r][j] -= factor * mat[col][j];
+                inv[r][j] -= factor * inv[col][j];
+            }
+        }
+    }
+
+    Ok(inv)
+}
+
+/// Computes the exact 1-norm condition number $\kappa_1(M) = \|M\|_1 \cdot \|M^{-1}\|_1$ for square matrices.
+///
+/// Returns:
+/// - `Ok(kappa)` where $\kappa \ge 1.0$.
+/// - [`FilterError::NonFiniteInput`] if elements are NaN or infinite.
+/// - [`FilterError::InvalidCovariance`] if the matrix norm is zero or non-positive.
+/// - [`FilterError::NumericalInstability`] if $M$ is singular or rank-deficient.
+pub fn matrix_condition_number<const N: usize>(m: &[[Real; N]; N]) -> Result<Real, FilterError> {
+    for row in m.iter() {
+        for val in row.iter() {
+            if !val.is_finite() {
+                return Err(FilterError::NonFiniteInput);
+            }
+        }
+    }
+
+    let norm_m = matrix_norm_1(m);
+    if norm_m <= 0.0 {
+        return Err(FilterError::InvalidCovariance);
+    }
+
+    let inv = invert_matrix(m)?;
+    let norm_inv = matrix_norm_1(&inv);
+
+    let cond = norm_m * norm_inv;
+    if !cond.is_finite() || cond < 1.0 {
+        return Ok(1.0);
+    }
+
+    Ok(cond)
+}
+
+/// Validates whether an $N \times N$ covariance matrix is well-conditioned and physically admissible.
+///
+/// Verification rules:
+/// 1. `max_condition_number` must be finite and strictly positive.
+/// 2. All elements must be finite numbers.
+/// 3. All main diagonal variances must be strictly positive ($M_{ii} > 0$).
+/// 4. Matrix must be approximately symmetric within numerical tolerance.
+/// 5. Condition number $\kappa_1(M) \le \text{max\_condition\_number}$.
+///
+/// Returns `Ok(cond)` on success, or [`FilterError::InvalidCovariance`] if ill-conditioned or asymmetric.
+#[allow(clippy::needless_range_loop)]
+pub fn check_matrix_conditioning<const N: usize>(
+    m: &[[Real; N]; N],
+    max_condition_number: Real,
+) -> Result<Real, FilterError> {
+    if !max_condition_number.is_finite() || max_condition_number <= 0.0 {
+        return Err(FilterError::InvalidParameter);
+    }
+
+    // Check diagonal variances
+    for i in 0..N {
+        if m[i][i] <= 0.0 || !m[i][i].is_finite() {
+            return Err(FilterError::InvalidCovariance);
+        }
+    }
+
+    // Check approximate symmetry
+    let norm = matrix_norm_1(m);
+    #[cfg(not(feature = "single-precision"))]
+    let sym_tol = norm * 1e-12 + 1e-15;
+    #[cfg(feature = "single-precision")]
+    let sym_tol = norm * 1e-5 + 1e-6;
+
+    for i in 0..N {
+        for j in (i + 1)..N {
+            if (m[i][j] - m[j][i]).abs_val() > sym_tol {
+                return Err(FilterError::InvalidCovariance);
+            }
+        }
+    }
+
+    let cond = matrix_condition_number(m)?;
+    if cond > max_condition_number {
+        return Err(FilterError::InvalidCovariance);
+    }
+
+    Ok(cond)
 }

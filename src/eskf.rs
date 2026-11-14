@@ -343,6 +343,25 @@ impl ErrorStateKalmanFilter {
         &self.cov
     }
 
+    /// Computes the 1-norm numerical condition number $\kappa_1(P)$ of the 15x15 error-state covariance matrix.
+    #[inline]
+    pub fn condition_number(&self) -> Result<Real, FilterError> {
+        crate::linear::matrix_condition_number(&self.cov)
+    }
+
+    /// Checks whether the 15x15 error covariance is well-conditioned against a specified threshold.
+    #[inline]
+    pub fn check_conditioning(&self, max_condition_number: Real) -> Result<Real, FilterError> {
+        crate::linear::check_matrix_conditioning(&self.cov, max_condition_number)
+    }
+
+    /// Quick boolean check whether the 15x15 error covariance is well-conditioned against [`crate::DEFAULT_MAX_CONDITION_NUMBER`].
+    #[inline]
+    pub fn is_well_conditioned(&self) -> bool {
+        self.check_conditioning(crate::DEFAULT_MAX_CONDITION_NUMBER)
+            .is_ok()
+    }
+
     /// Propagates nominal state and error covariance forward by `dt` seconds using IMU inputs.
     pub fn predict(
         &mut self,
