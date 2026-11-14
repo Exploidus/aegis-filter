@@ -278,4 +278,23 @@ impl UnscentedKalmanFilter2D {
 
         Ok(self.x)
     }
+
+    /// Computes the 1-norm numerical condition number $\kappa_1(P)$ of the 2x2 state covariance matrix.
+    #[inline]
+    pub fn condition_number(&self) -> Result<Real, FilterError> {
+        crate::linear::matrix_condition_number(&self.p)
+    }
+
+    /// Checks whether the 2x2 state covariance is well-conditioned against a specified threshold.
+    #[inline]
+    pub fn check_conditioning(&self, max_condition_number: Real) -> Result<Real, FilterError> {
+        crate::linear::check_matrix_conditioning(&self.p, max_condition_number)
+    }
+
+    /// Quick boolean check whether state covariance is well-conditioned against [`crate::DEFAULT_MAX_CONDITION_NUMBER`].
+    #[inline]
+    pub fn is_well_conditioned(&self) -> bool {
+        self.check_conditioning(crate::DEFAULT_MAX_CONDITION_NUMBER)
+            .is_ok()
+    }
 }

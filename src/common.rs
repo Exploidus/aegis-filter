@@ -11,6 +11,14 @@ pub type Real = f32;
 /// Standard recommended 3-sigma innovation threshold for outlier and anomaly rejection.
 pub const DEFAULT_OUTLIER_GATE_SIGMA: Real = 3.0;
 
+#[cfg(not(feature = "single-precision"))]
+/// Standard maximum condition number threshold for double-precision covariance matrices (10^12).
+pub const DEFAULT_MAX_CONDITION_NUMBER: Real = 1e12;
+
+#[cfg(feature = "single-precision")]
+/// Standard maximum condition number threshold for single-precision covariance matrices (10^6).
+pub const DEFAULT_MAX_CONDITION_NUMBER: Real = 1e6;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FilterError {

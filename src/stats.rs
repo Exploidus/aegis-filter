@@ -2,6 +2,8 @@
 //!
 //! Designed for `#![no_std]` environments with const-generic fixed buffers and zero heap allocations.
 
+#![allow(clippy::needless_range_loop)]
+
 use crate::common::{FilterError, FloatOps, Real};
 
 /// Deterministic, zero-allocation rolling window statistics over a fixed capacity `N`.
@@ -65,8 +67,8 @@ impl<const N: usize> WindowedStats<N> {
             return None;
         }
         let mut sum = 0.0;
-        for i in 0..self.count {
-            sum += self.buffer[i];
+        for &val in &self.buffer[..self.count] {
+            sum += val;
         }
         Some(sum / self.count as Real)
     }
@@ -78,8 +80,8 @@ impl<const N: usize> WindowedStats<N> {
         }
         let m = self.mean()?;
         let mut sum_sq = 0.0;
-        for i in 0..self.count {
-            let diff = self.buffer[i] - m;
+        for &val in &self.buffer[..self.count] {
+            let diff = val - m;
             sum_sq += diff * diff;
         }
         Some(sum_sq / (self.count - 1) as Real)
@@ -97,9 +99,9 @@ impl<const N: usize> WindowedStats<N> {
             return None;
         }
         let mut min_val = self.buffer[0];
-        for i in 1..self.count {
-            if self.buffer[i] < min_val {
-                min_val = self.buffer[i];
+        for &val in &self.buffer[1..self.count] {
+            if val < min_val {
+                min_val = val;
             }
         }
         Some(min_val)
@@ -111,9 +113,9 @@ impl<const N: usize> WindowedStats<N> {
             return None;
         }
         let mut max_val = self.buffer[0];
-        for i in 1..self.count {
-            if self.buffer[i] > max_val {
-                max_val = self.buffer[i];
+        for &val in &self.buffer[1..self.count] {
+            if val > max_val {
+                max_val = val;
             }
         }
         Some(max_val)

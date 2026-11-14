@@ -34,13 +34,16 @@ pub mod robust;
 pub mod stats;
 pub mod unscented;
 
-pub use common::{FilterError, Real, DEFAULT_OUTLIER_GATE_SIGMA};
+pub use common::{FilterError, Real, DEFAULT_MAX_CONDITION_NUMBER, DEFAULT_OUTLIER_GATE_SIGMA};
 pub use eskf::{
     ErrorStateKalmanFilter, EskfNoiseParameters, EskfNominalState, Quaternion, Vector3,
     EARTH_GRAVITY_Z_UP,
 };
 pub use fusion::{FusionStatus, MultiSensorFusion1D, SensorMeasurement, SensorSource};
-pub use linear::{LinearKalmanFilter, ScalarKalmanFilter};
+pub use linear::{
+    check_matrix_conditioning, invert_matrix, matrix_condition_number, matrix_norm_1,
+    matrix_norm_frobenius, matrix_norm_inf, LinearKalmanFilter, ScalarKalmanFilter,
+};
 pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};
 pub use stats::WindowedStats;
 pub use unscented::UnscentedKalmanFilter2D;
