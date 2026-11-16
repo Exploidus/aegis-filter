@@ -34,7 +34,9 @@ pub mod robust;
 pub mod stats;
 pub mod unscented;
 
-pub use common::{FilterError, Real, DEFAULT_MAX_CONDITION_NUMBER, DEFAULT_OUTLIER_GATE_SIGMA};
+pub use common::{
+    FilterError, FloatOps, Real, DEFAULT_MAX_CONDITION_NUMBER, DEFAULT_OUTLIER_GATE_SIGMA,
+};
 pub use eskf::{
     ErrorStateKalmanFilter, EskfNoiseParameters, EskfNominalState, Quaternion, Vector3,
     EARTH_GRAVITY_Z_UP,

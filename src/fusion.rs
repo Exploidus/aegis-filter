@@ -269,11 +269,32 @@ impl<const N: usize> MultiSensorFusion1D<N> {
 
     /// Returns the active health score of a sensor by ID.
     pub fn sensor_health(&self, sensor_id: u8) -> Option<Real> {
-        for s in self.sensors.iter().flatten() {
-            if s.id == sensor_id {
-                return Some(s.health_score);
-            }
-        }
-        None
+        self.sensors
+            .iter()
+            .flatten()
+            .find(|s| s.id == sensor_id)
+            .map(|s| s.health_score)
+    }
+
+    /// Returns whether a sensor is currently quarantined by ID.
+    pub fn is_sensor_quarantined(&self, sensor_id: u8) -> Option<bool> {
+        self.sensors
+            .iter()
+            .flatten()
+            .find(|s| s.id == sensor_id)
+            .map(|s| s.is_quarantined)
+    }
+
+    /// Returns a reference to a registered sensor by ID.
+    pub fn sensor(&self, sensor_id: u8) -> Option<&SensorSource> {
+        self.sensors.iter().flatten().find(|s| s.id == sensor_id)
+    }
+
+    /// Returns a mutable reference to a registered sensor by ID.
+    pub fn sensor_mut(&mut self, sensor_id: u8) -> Option<&mut SensorSource> {
+        self.sensors
+            .iter_mut()
+            .flatten()
+            .find(|s| s.id == sensor_id)
     }
 }

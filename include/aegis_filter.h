@@ -259,6 +259,15 @@ aegis_real aegis_fusion4_get_variance(const AegisFusion4* fusion);
  */
 aegis_real aegis_fusion4_get_sensor_health(const AegisFusion4* fusion, uint8_t sensor_id);
 
+/**
+ * @brief Checks if a sensor is currently quarantined by automated FDIR.
+ *
+ * @param fusion Pointer to fusion engine.
+ * @param sensor_id Unique sensor ID.
+ * @return 1 if quarantined, 0 if active/nominal, -1 if invalid pointer or sensor not found.
+ */
+int aegis_fusion4_is_sensor_quarantined(const AegisFusion4* fusion, uint8_t sensor_id);
+
 #ifdef __cplusplus
 }
 #endif
