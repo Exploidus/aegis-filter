@@ -653,6 +653,19 @@ impl ErrorStateKalmanFilter {
         Ok(())
     }
 
+    /// Fuses scalar 1D altitude observation (e.g. Barometric Altimeter or LiDAR/Radar).
+    pub fn update_altimeter(
+        &mut self,
+        altitude: Real,
+        noise_var: Real,
+        gate_sigma: Option<Real>,
+    ) -> Result<(), FilterError> {
+        let y_z = altitude - self.state.position.z;
+        let mut h_z = [0.0; 15];
+        h_z[2] = 1.0;
+        self.update_scalar(y_z, h_z, noise_var, gate_sigma)
+    }
+
     /// Fuses 3-axis magnetometer reading for yaw/heading correction against reference geomagnetic vector.
     pub fn update_magnetometer(
         &mut self,

@@ -507,3 +507,22 @@ pub unsafe extern "C" fn aegis_fusion4_get_sensor_health(
         .sensor_health(sensor_id)
         .unwrap_or(Real::NAN)
 }
+
+/// Returns whether a sensor is currently quarantined (1 = quarantined, 0 = active, -1 = not found / error).
+///
+/// # Safety
+/// Caller must ensure `fusion` points to a valid `AegisFusion4` or null.
+#[no_mangle]
+pub unsafe extern "C" fn aegis_fusion4_is_sensor_quarantined(
+    fusion: *const AegisFusion4,
+    sensor_id: u8,
+) -> i32 {
+    if fusion.is_null() {
+        return -1;
+    }
+    match (*fusion).inner.is_sensor_quarantined(sensor_id) {
+        Some(true) => 1,
+        Some(false) => 0,
+        None => -1,
+    }
+}
