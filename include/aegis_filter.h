@@ -2,7 +2,7 @@
  * @file aegis_filter.h
  * @brief High-Integrity, Cyber-Resilient State Estimation & Robust Filtering Engine C API.
  * @author Exploidus (https://github.com/Exploidus)
- * @copyright 2026 Exploidus. Dual-licensed MIT / Apache-2.0.
+ * @copyright 2026 Exploidus. Dual-licensed GNU AGPL-3.0 / Commercial.
  *
  * Designed for NASA F Prime (F´), flight avionics, and mission-critical embedded systems.
  * Provides zero-allocation, deterministic execution for ARM Cortex-M, RISC-V, and x86/x86_64.

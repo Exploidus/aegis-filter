@@ -145,8 +145,16 @@ The repository includes a reference adapter demonstrating how to bind `aegis-fil
 
 ---
 
-## License
+## License & Commercial Inquiries
 
-Dual-licensed under either of:
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
+`aegis-filter` is dual-licensed under open-source and commercial terms:
+
+### 1. Open Source (GNU AGPLv3)
+For open-source projects, academic research, and non-commercial mission prototypes, this project is licensed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**.
+Under this license, any software, autonomous navigation stack, ground control station, or embedded flight firmware incorporating, modifying, or linking `aegis-filter` must make its complete source code available under compatible copyleft terms when distributed or deployed over a network. See [LICENSE](LICENSE) for the full text.
+
+### 2. Proprietary Commercial License
+For aerospace defense contractors, commercial satellite operators, autonomous robotics vendors, and proprietary hardware manufacturers who cannot comply with AGPLv3 copyleft terms or wish to embed `aegis-filter` within proprietary closed-source flight software:
+- Commercial licenses are available without copyleft obligations.
+- Includes custom sensor calibration, sensor-fault isolation (FDIR) integration assistance, and mission support SLA.
+- For commercial licensing terms, custom mission integrations, and volume pricing, contact: **`rahadbhuiya2021@gmail.com`**.
