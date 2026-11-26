@@ -16,6 +16,7 @@ Developed under **[Exploidus](https://github.com/Exploidus)**.
 - **Strict Non-Finite Float Guards**: Hardened against `NaN`, `+Inf`, and `-Inf` on all state vectors, inputs, and measurements. All methods return `Result<T, KalmanError>` with zero panics.
 - **Mahalanobis Distance / Chi-Square Outlier Gating**: Built-in residual gating to discard wild sensor glitches, adversarial spoofed signals, or hardware spikes without contaminating the filter state.
 - **Pure `#![no_std]` & Zero Heap Allocations**: Const generic dimensions (`KalmanFilter<STATES, MEASUREMENTS>`) allow running directly on bare-metal microcontrollers (ARM Cortex-M, RISC-V) without `alloc` or OS dependencies.
+- **Hardware SIMD & Portable Vector Acceleration**: Vectorized matrix multiplication ($A \cdot B$, $A \cdot B^T$) and Joseph-form covariance updates with runtime CPU detection on x86_64 (**AVX2 + FMA**), 64-bit ARM (**NEON**), and loop-unrolled cache-friendly fallback for `#![no_std]` and all architectures.
 
 ---
 

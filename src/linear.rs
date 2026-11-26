@@ -278,24 +278,14 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
         }
 
         let mut f_p = [[0.0; S]; S];
-        for i in 0..S {
-            for j in 0..S {
-                let mut sum = 0.0;
-                for k in 0..S {
-                    sum += self.f[i][k] * self.p[k][j];
-                }
-                f_p[i][j] = sum;
-            }
-        }
+        crate::simd::matmul::<S, S, S>(&self.f, &self.p, &mut f_p);
 
         let mut p_pred = [[0.0; S]; S];
+        crate::simd::matmul_transpose_b::<S, S, S>(&f_p, &self.f, &mut p_pred);
+
         for i in 0..S {
             for j in 0..S {
-                let mut sum = 0.0;
-                for k in 0..S {
-                    sum += f_p[i][k] * self.f[j][k];
-                }
-                p_pred[i][j] = sum + self.q[i][j];
+                p_pred[i][j] += self.q[i][j];
             }
         }
 
@@ -492,46 +482,9 @@ impl<const S: usize, const M: usize> LinearKalmanFilter<S, M> {
             }
         }
 
-        // Factored Joseph form: O(S^3 + S^2 M + S M^2) instead of fused O(S^4 + S^2 M^2).
-        // 1. EP = E * P  (S x S) in O(S^3)
-        let mut ep = [[0.0; S]; S];
-        for i in 0..S {
-            for j in 0..S {
-                let mut acc = 0.0;
-                for a in 0..S {
-                    acc += e[i][a] * p[a][j];
-                }
-                ep[i][j] = acc;
-            }
-        }
-
-        // 2. KR = K * R  (S x M) in O(S * M^2)
-        let mut kr = [[0.0; M]; S];
-        for i in 0..S {
-            for t in 0..M {
-                let mut acc = 0.0;
-                for l in 0..M {
-                    acc += k[i][l] * r[l][t];
-                }
-                kr[i][t] = acc;
-            }
-        }
-
-        // 3. P_new = (EP) * E^T + (KR) * K^T in O(S^2 * (S + M))
+        // SIMD accelerated Joseph form update: O(S^3 + S^2 M + S M^2)
         let mut p_new = [[0.0; S]; S];
-        for i in 0..S {
-            for j in 0..S {
-                let mut ep_e = 0.0;
-                for b in 0..S {
-                    ep_e += ep[i][b] * e[j][b];
-                }
-                let mut k_r_k = 0.0;
-                for t in 0..M {
-                    k_r_k += kr[i][t] * k[j][t];
-                }
-                p_new[i][j] = ep_e + k_r_k;
-            }
-        }
+        crate::simd::joseph_form_covariance_update::<S, M>(&e, &p, &k, &r, &mut p_new);
 
         // Symmetrise and floor the diagonals: the Joseph form can leave a tiny negative
         // on the diagonal under round-off; flooring keeps P well-posed for the next step.

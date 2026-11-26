@@ -472,40 +472,8 @@ impl ErrorStateKalmanFilter {
         q_d[14] = var_gb;
 
         // 6. Covariance propagation: P_next = F * P * F^T + Q_d
-        let mut fp = [[0.0; 15]; 15];
-        for i in 0..15 {
-            for j in 0..15 {
-                let mut sum = 0.0;
-                for k in 0..15 {
-                    sum += f[i][k] * self.cov[k][j];
-                }
-                fp[i][j] = sum;
-            }
-        }
-
         let mut next_cov = [[0.0; 15]; 15];
-        for i in 0..15 {
-            for j in 0..15 {
-                let mut sum = 0.0;
-                for k in 0..15 {
-                    sum += fp[i][k] * f[j][k];
-                }
-                if i == j {
-                    sum += q_d[i];
-                }
-                next_cov[i][j] = sum;
-            }
-        }
-
-        // Symmetrize covariance to guarantee numerical stability
-        for i in 0..15 {
-            for j in 0..i {
-                let avg = 0.5 * (next_cov[i][j] + next_cov[j][i]);
-                next_cov[i][j] = avg;
-                next_cov[j][i] = avg;
-            }
-        }
-
+        crate::simd::propagate_covariance::<15>(&f, &self.cov, &q_d, &mut next_cov);
         self.cov = next_cov;
         Ok(())
     }

@@ -31,6 +31,7 @@ pub mod ffi;
 pub mod fusion;
 pub mod linear;
 pub mod robust;
+pub mod simd;
 pub mod stats;
 pub mod unscented;
 
@@ -47,5 +48,6 @@ pub use linear::{
     matrix_norm_frobenius, matrix_norm_inf, LinearKalmanFilter, ScalarKalmanFilter,
 };
 pub use robust::{AdaptiveFilter1D, HInfinityFilter1D};
+pub use simd::{joseph_form_covariance_update, matmul, matmul_transpose_b, propagate_covariance};
 pub use stats::WindowedStats;
 pub use unscented::UnscentedKalmanFilter2D;
